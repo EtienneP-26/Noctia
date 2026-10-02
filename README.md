@@ -1,4 +1,4 @@
-[Logo Noctia](Docs/assets/Logo.png)
+![Logo Noctia](Docs/assets/Logo.png)
 
 # Noctia
 
