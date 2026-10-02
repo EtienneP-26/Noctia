@@ -1,0 +1,8 @@
+{
+  "name": "noctia-plugins",
+  "description": "Engineering rules for agentic coding CLIs: KISS, tested code, security checks, guarded git.",
+  "owner": { "name": "Etienne Pouille" },
+  "plugins": [
+    { "name": "noctia", "source": "./" }
+  ]
+}
