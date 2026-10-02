@@ -65,9 +65,14 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `skills/release-and-deploy` | Versioning vX.Y.Z, branches, CI/CD, changelog, docs. |
 | `skills/git-workflow` | How to commit and push once unlocked (co-author question included). |
 | `skills/git` | The user-only command that unlocks git (`/noctia:git`). |
+| `skills/help-me-code-it` | Mentor mode (`/noctia:help-me-code-it`): Claude guides you instead of coding, you write the code. |
 | `agents/architect.md` | Opus: complex code, blocked decisions. |
 | `agents/reader.md` | Haiku: bulk reading (codebase, git history, data). |
 | `agents/security-reviewer.md` | Opus: security review of a change. |
+
+## Mentor mode
+
+`/noctia:help-me-code-it <project, feature or bug>` turns Claude into a mentor. It does not write the solution: it asks questions, helps you split the work into small steps, reviews what you wrote, and guides your debugging with hints of growing strength. It only gives very specific commands, signatures or syntax reminders. You do the thinking and the typing.
 
 ## Git modes
 
