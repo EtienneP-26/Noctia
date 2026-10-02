@@ -16,7 +16,7 @@ These rules apply to every task in this session. Deeper procedures live in the n
 ## Code
 - KISS. Readable beats clever or fast. If a library or an existing function already does the job, use it, never recreate it. Ask before adding a dependency.
 - Small modules, small functions, one purpose each. A function may call others but must not do everything itself. If a function cannot be split, the design is wrong.
-- Few comments. Every function gets a docstring: one line saying what it does, a blank line, then `:param name:` lines and a `:returns:` line (see `code-quality` for the exact layout).
+- Few comments. Every function gets a docstring. If the project already has a docstring convention, follow it; otherwise (or if the user asks) use the Noctia style: a `#` title line, then `## Args`, `## Returns`, `## Raises` (if any) and `## Example`, in the language's native doc-comment syntax (see `code-quality` for Python and Rust references).
 - New code ships with its tests.
 - See the `code-quality` skill before writing or reviewing code.
 

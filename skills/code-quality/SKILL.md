@@ -1,6 +1,6 @@
 ---
 name: code-quality
-description: How to write, structure and test code the Noctia way (KISS, small modular functions, short docstrings, tests with every change). Use when writing, changing or reviewing code.
+description: How to write, structure and test code the Noctia way (KISS, small modular functions, markdown docstrings, tests with every change). Use when writing, changing or reviewing code.
 ---
 
 # Code quality
@@ -17,32 +17,69 @@ description: How to write, structure and test code the Noctia way (KISS, small m
 - **Names explain the code.** Use them instead of comments. Comment only the "why" of something non-obvious.
 
 ## Docstrings
-Line 1: what the function does, in one line. Then a blank line, then one `:param name:` line per parameter (say the default when there is one), then a `:returns:` line. Nothing else: no essays, no examples inside the docstring.
+1. **The project wins.** If the code already has a docstring convention (or CONTRIBUTING.md / a linter config sets one), follow it, unless the user asks for the Noctia style.
+2. **Otherwise, or if the user asks, use the Noctia style:** markdown inside the docstring. Line 1 is a `#` title saying what the function does. Then `## Args`, `## Returns`, `## Raises` (only if it raises) and `## Example` (a runnable one, doctest-style when the language supports it). Keep each section short.
+3. **Other languages follow the same style**, even if not listed here: the same sections in the same order, written with the language's native doc-comment syntax.
+
+Python:
 
 ```python
-def web_search(question, region="us-en", timelimit=None):
-    """Makes a research on the web using duckduckgo with a question
+def blend(
+    src: tuple[int, int, int, int],
+    dst: tuple[int, int, int, int]
+) -> tuple[int, int, int, int]:
+    """# Blend two pixels together using alpha compositing
 
-    :param question: the research question
-    :param region: where the region of the search. default us-en
-    :param timelimit: Time constraint: d (day), w (week), m (month), y (year). default None
-    :returns: the search results, max_results items
+    ## Args:
+        src: Upper pixel as (r, g, b, a).
+        dst: Lower pixel as (r, g, b, a).
+
+    ## Returns:
+        The blended pixel, always fully opaque.
+
+    ## Raises:
+        ValueError: If a channel is outside 0-255.
+
+    ## Example:
+        >>> blend((255, 0, 0, 128), (0, 0, 255, 255))
+        (128, 0, 127, 255)
     """
+    a = src[3]
+    inv = 255 - a
+    rgb = tuple((s * a + d * inv) // 255 for s, d in zip(src[:3], dst[:3]))
+
+    return (*rgb, 255)
 ```
 
-Other languages: same layout with the language's native tags, for example JSDoc:
+Rust:
 
-```js
-/**
- * Makes a research on the web using duckduckgo with a question
- *
- * @param {string} question - the research question
- * @param {string} region - where the region of the search. default us-en
- * @returns {Array} the search results
- */
+```rust
+/// # Blends two pixels together using alpha compositing.
+///
+/// ## Arguments
+/// * `src` - Upper pixel as `[r, g, b, a]`
+/// * `dst` - Lower pixel as `[r, g, b, a]`
+///
+/// ## Returns
+/// The blended pixel, always fully opaque.
+///
+/// ## Examples
+/// ```
+/// let red = [255, 0, 0, 255];
+/// let blue = [0, 0, 255, 255];
+/// assert_eq!(blend(red, blue), [255, 0, 0, 255]);
+///
+/// let half_red = [255, 0, 0, 128];
+/// assert_eq!(blend(half_red, blue), [128, 0, 127, 255]);
+/// ```
+pub fn blend(src: [u8; 4], dst: [u8; 4]) -> [u8; 4] {
+    let a = src[3] as u16;
+    let inv = 255 - a;
+    let mix = |s: u8, d: u8| ((s as u16 * a + d as u16 * inv) / 255) as u8;
+
+    [mix(src[0], dst[0]), mix(src[1], dst[1]), mix(src[2], dst[2]), 255]
+}
 ```
-
-If the project already has its own docstring convention, the project wins.
 
 ## Tests
 - Every new function or behavior change ships with tests in the same change, in the project's test framework and folder layout.
