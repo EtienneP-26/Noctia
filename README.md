@@ -16,6 +16,28 @@ then
 
 Then inside Claude Code, run `/help` and look for the `noctia:` skills.
 
+## Update
+
+Refresh the marketplace to fetch the latest version, then reinstall the plugin:
+
+```bash
+/plugin marketplace update noctia-plugins
+```
+then
+```bash
+/plugin install noctia@noctia-plugins
+```
+
+Reload without restarting Claude Code:
+
+```bash
+/reload-plugins
+```
+
+You can also open `/plugin` and, in the marketplace settings, enable auto-update for `noctia-plugins` so it refreshes at startup.
+
+Claude Code decides a plugin changed from the `version` in `.claude-plugin/plugin.json`. If you maintain Noctia, bump that version (vX.Y.Z) with every release, or users will not see your changes.
+
 ## Set Sonnet as your default model
 
 A plugin cannot force the main model, so set it once yourself, either in a session with `/model sonnet` or permanently in `~/.claude/settings.json`:
