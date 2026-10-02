@@ -7,7 +7,10 @@ A Claude Code plugin that makes Claude develop like a careful senior engineer, w
 ## Install (local test)
 
 ```bash
-/plugin marketplace add EtienneP-26/noctia
+/plugin marketplace add EtienneP-26/Noctia
+```
+then
+```bash
 /plugin install noctia@noctia-plugins
 ```
 
