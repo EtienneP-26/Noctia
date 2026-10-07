@@ -92,10 +92,20 @@ Git write commands are locked by default. You unlock them per project:
 
 - `/noctia:git locked`: default, nothing allowed.
 - `/noctia:git ask`: allowed, but you approve every command in a prompt.
-- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing. It asks once per project whether to credit itself as co-author (`Co-Authored-By: Claude` and `Co-Authored-By: Noctia`) and remembers the answer in `.noctia/coauthor`.
-- `/noctia:git status`: show the current mode.
+- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing.- `/noctia:git status`: show the current mode.
 
 The mode is stored in `.noctia/git-mode` inside the project, which is git-ignored automatically.
+
+### Co-authors
+
+Once git is unlocked (`ask` or `auto`), Noctia asks once per project whether you want Claude and Noctia credited as co-authors. If you say yes, every commit Claude makes ends with:
+
+```
+Co-Authored-By: Claude <noreply@anthropic.com>
+Co-Authored-By: Noctia <noctia@etienne-pouille.work>
+```
+
+Both then appear as co-authors on the commit on GitHub. If you say no, no credit is added. Your answer is remembered in `.noctia/coauthor`, and you can change it by running `bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-coauthor.sh" yes` (or `no`). The credit is only attribution: it does not give anyone rights over your code, your `LICENSE` does.
 
 ## Limits to know
 
