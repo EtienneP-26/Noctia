@@ -1,8 +1,17 @@
 {
   "name": "noctia-plugins",
   "description": "Engineering rules for agentic coding CLIs: KISS, tested code, security checks, guarded git.",
-  "owner": { "name": "Etienne Pouille" },
+  "owner": {
+    "name": "Etienne Pouille"
+  },
   "plugins": [
-    { "name": "noctia", "source": "./" }
+    {
+      "name": "noctia",
+      "source": "./"
+    },
+    {
+      "name": "noctia-mods",
+      "source": "./mods/noctia-mods"
+    }
   ]
 }

@@ -70,6 +70,18 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `agents/reader.md` | Haiku: bulk reading (codebase, git history, data). |
 | `agents/security-reviewer.md` | Opus: security review of a change. |
 
+## Mods (visual)
+
+`noctia-mods` is a second plugin: it changes how Claude Code looks. Install it the same way:
+
+```bash
+/plugin install noctia-mods@noctia-plugins
+```
+
+| Mod | What you see | Since |
+|---|---|---|
+| Team panel | A side panel listing every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
+
 ## Mentor mode
 
 `/noctia:help-me-code-it <project, feature or bug>` turns Claude into a mentor. It does not write the solution: it asks questions, helps you split the work into small steps, reviews what you wrote, and guides your debugging with hints of growing strength. It only gives very specific commands, signatures or syntax reminders. You do the thinking and the typing.
