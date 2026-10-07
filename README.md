@@ -81,6 +81,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | Mod | What you see | Since |
 |---|---|---|
 | Team panel | A side panel listing every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
+| Agent labels | A coloured `[reader]`, `[architect]`… tag in front of each chat row that launches a subagent, same colours as the team panel. | v0.3.3 |
 
 ## Mentor mode
 
