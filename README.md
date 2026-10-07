@@ -1,4 +1,4 @@
-![Logo Noctia](Docs/assets/Logo.png)
+![Logo Noctia](Docs/assets/logo.png)
 
 # Noctia
 
@@ -92,7 +92,7 @@ Git write commands are locked by default. You unlock them per project:
 
 - `/noctia:git locked`: default, nothing allowed.
 - `/noctia:git ask`: allowed, but you approve every command in a prompt.
-- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing. It asks once per project whether to credit itself as co-author (`Co-Authored-By: Claude (Noctia)`) and remembers the answer in `.noctia/coauthor`.
+- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing. It asks once per project whether to credit itself as co-author (`Co-Authored-By: Claude` and `Co-Authored-By: Noctia`) and remembers the answer in `.noctia/coauthor`.
 - `/noctia:git status`: show the current mode.
 
 The mode is stored in `.noctia/git-mode` inside the project, which is git-ignored automatically.
