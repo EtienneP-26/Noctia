@@ -47,6 +47,9 @@ export const colorOf = (type: string): string => COLORS[shortName(type)] ?? 'gra
 export const seconds = (run: AgentRun, now: number): number =>
   Math.round(((run.endedAt ?? now) - run.startedAt) / 1000)
 
+/** The slash command that reopens the team panel, registered at session start. */
+export const teamCommand = { name: 'team', description: 'Show which subagent does what' }
+
 /**
  * # Team panel
  * Lists every subagent of the session with its status, task and duration.
@@ -54,11 +57,6 @@ export const seconds = (run: AgentRun, now: number): number =>
  * - on: the hook registrar
  */
 export const registerTeam: Register = on => {
-  on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'team', description: 'Show which subagent does what' })
-    return next(e)
-  })
-
   on('command.run', { command: 'team' }, async $ => {
     await $.ui.open({ id: PANE, title: 'Team' })
     return { text: 'Team panel opened.' }

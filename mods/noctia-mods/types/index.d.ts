@@ -13,8 +13,12 @@ export type Todo = {
   activeForm: string
 }
 
+export type MentorStep = { title: string; status: 'todo' | 'doing' | 'done' }
+
+export type MentorState = { steps: MentorStep[]; hintLevel: number }
+
 declare module 'claude-code' {
   interface PluginState {
-    'noctia-mods': { agents: AgentRun[]; todos: Todo[] }
+    'noctia-mods': { agents: AgentRun[]; todos: Todo[]; mentor: MentorState }
   }
 }

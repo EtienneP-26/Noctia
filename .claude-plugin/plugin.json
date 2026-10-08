@@ -1,6 +1,6 @@
 {
   "name": "noctia",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Engineering rules for Claude Code: KISS, modular tested code, security checks, guarded git, and model routing (Sonnet by default, Haiku for bulk reading, Opus for hard problems).",
   "author": {
     "name": "Etienne Pouille"

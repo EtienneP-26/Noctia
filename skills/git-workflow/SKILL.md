@@ -13,8 +13,8 @@ Once unlocked:
 2. **Stage precisely.** `git add <specific files>`, never `git add -A` or `.` blindly. Check `git status` first so no secret, `.env`, build output or unrelated file goes in.
 3. **Co-author credit, ask once per project.** Look for `.noctia/coauthor`. If it exists, use its answer (`yes` or `no`) without asking. If not, ask once: "Do you want me to credit myself as co-author in this project's commits? I will remember your answer." Then save the answer by running `bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-coauthor.sh" yes` (or `no`). On `no`, the script also adds `.noctia/` to `.git/info/exclude`, so the folder leaves no trace in the repo. If the answer is yes, end every commit message with these two lines:
 ```
-   Co-Authored-By: Claude <noreply@anthropic.com>
    Co-Authored-By: Noctia <noctia@etienne-pouille.work>
+   Co-Authored-By: Claude <noreply@anthropic.com>
 ```
    The credit is always these same two lines, whichever model did the work. If the user later changes their mind, run the script again with the new answer. If CONTRIBUTING.md forbids AI credit, do not ask: run the script with `no` and say why.
 4. **Push is a separate question.** Ask "Do you want me to push?" every time, even in auto mode. Never force-push. Never push to main or a protected branch unless CONTRIBUTING.md says that is the workflow.
