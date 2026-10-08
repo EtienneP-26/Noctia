@@ -82,6 +82,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 |---|---|---|
 | Team panel | A side panel listing every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
 | Agent labels | A coloured `[reader]`, `[architect]`… tag in front of each chat row that launches a subagent, same colours as the team panel. | v0.3.3 |
+| Task checklist | A side panel with the task list of the session: done, in progress, to do, and a progress bar. Reads `TodoWrite` only for now; `TaskCreate`/`TaskUpdate` are not handled yet. | v0.3.4 |
 
 ## Mentor mode
 
@@ -102,8 +103,8 @@ The mode is stored in `.noctia/git-mode` inside the project, which is git-ignore
 Once git is unlocked (`ask` or `auto`), Noctia asks once per project whether you want Claude and Noctia credited as co-authors. If you say yes, every commit Claude makes ends with:
 
 ```
-Co-Authored-By: Claude <noreply@anthropic.com>
 Co-Authored-By: Noctia <noctia@etienne-pouille.work>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 Both then appear as co-authors on the commit on GitHub. If you say no, no credit is added. Your answer is remembered in `.noctia/coauthor`, and you can change it by running `bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-coauthor.sh" yes` (or `no`). The credit is only attribution: it does not give anyone rights over your code, your `LICENSE` does.

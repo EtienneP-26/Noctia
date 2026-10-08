@@ -7,8 +7,14 @@ export type AgentRun = {
   endedAt?: number
 }
 
+export type Todo = {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed'
+  activeForm: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'noctia-mods': { agents: AgentRun[] }
+    'noctia-mods': { agents: AgentRun[]; todos: Todo[] }
   }
 }
