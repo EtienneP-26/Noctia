@@ -83,6 +83,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | Team panel | A side panel listing every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
 | Agent labels | A coloured `[reader]`, `[architect]`… tag in front of each chat row that launches a subagent, same colours as the team panel. | v0.3.3 |
 | Task checklist | A side panel with the task list of the session: done, in progress, to do, and a progress bar. Reads `TodoWrite` only for now; `TaskCreate`/`TaskUpdate` are not handled yet. | v0.3.4 |
+| Visible guards | A toast when a Noctia guard blocks or questions a command (locked git, hard-coded secret), with the reason. | v0.3.5 |
 
 ## Mentor mode
 
