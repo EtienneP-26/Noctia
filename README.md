@@ -85,6 +85,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | Task checklist | A side panel with the task list of the session: done, in progress, to do, and a progress bar. Reads `TodoWrite` only for now; `TaskCreate`/`TaskUpdate` are not handled yet. | v0.3.4 |
 | Visible guards | A toast when a Noctia guard blocks or questions a command (locked git, hard-coded secret), with the reason. | v0.3.5 |
 | Mentor panel | In mentor mode, a side panel with the steps (done, doing, to do) and a gauge of the hints used. | v0.3.6 |
+| Cost and context | The status line shows the model, how full the context is and the session cost. A toast warns at 80% of the context. | v0.3.7 |
 
 ## Mentor mode
 
