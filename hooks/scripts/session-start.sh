@@ -66,10 +66,22 @@ project_is_empty() {
   [ -z "$(ls -A | grep -vE '^(\.git|\.noctia)$')" ]
 }
 
+# models_context: print the agent models the user chose with /noctia:models, if any.
+models_context() {
+  local choices
+  [ -f .noctia/models ] || return 0
+  choices=$(grep -E '^[a-z-]+=[a-z]+$' .noctia/models) || return 0
+  echo "## Noctia model choices (from /noctia:models)"
+  echo "These choices win over the models named in the rules above. On every Agent call for one of these agents, pass model: <choice>. For a teammate, name the model in the spawn prompt."
+  echo "$choices" | sed 's/=/ -> /; s/^/- /'
+  echo
+}
+
 # build_context: assemble the full text injected into the session.
 build_context() {
   cat "$PLUGIN_ROOT/rules/core.md"
   echo
+  models_context
   echo "## Noctia project scan (automatic)"
   if project_is_empty; then
     echo "The directory is empty: this is a new project. Propose a minimal structure (tests, CI, docs, README) before coding."

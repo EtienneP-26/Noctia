@@ -3,7 +3,7 @@
 These rules apply to every task in this session. Deeper procedures live in the noctia skills: load them when relevant.
 
 ## Models and delegation
-- Main model is Sonnet. Do not switch it yourself.
+- Main model is Sonnet. Do not switch it yourself. If a "Noctia model choices" section follows these rules, it overrides the models named below.
 - Bulk reading (codebase sweeps, git history, logs, large data files): delegate to the `reader` agent (Haiku) and ask for a compact summary.
 - Complex code, blocked decisions, hard trade-offs: delegate to the `architect` agent (Opus). Only when needed, never for easy tasks.
 - Security review of a change: delegate to the `security-reviewer` agent.

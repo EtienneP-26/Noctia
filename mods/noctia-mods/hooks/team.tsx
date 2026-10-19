@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { AgentRun } from '../types'
+import { MODELS_FILE, modelFor, parseModels } from './models'
 
 const PANE = 'noctia-team'
 const agents = atom({ plugin: 'noctia-mods', key: 'agents' } as const, [] as AgentRun[])
@@ -53,6 +54,8 @@ export const teamCommand = { name: 'team', description: 'Show which subagent doe
 /**
  * # Team panel
  * Lists every subagent of the session with its status, task and duration.
+ * When a subagent starts, also puts it on the model picked with `/noctia:models`, if any.
+ * Both live in one `agent.spawn` hook, because a mod may register that event only once.
  * ## Args
  * - on: the hook registrar
  */
@@ -77,8 +80,16 @@ export const registerTeam: Register = on => {
     }
     await update($, agents, list => [...list, run].slice(-50))
     void $.ui.open({ id: PANE, title: 'Team' })
+    let model: string | undefined
     try {
-      const result = await next(e)
+      const path = `${await $.session.root()}/${MODELS_FILE}`
+      const text = (await $.fs.exists(path)) ? ((await $.fs.read(path)) as string) : ''
+      model = modelFor(e.subagentType, parseModels(text))
+    } catch {
+      model = undefined
+    }
+    try {
+      const result = await next(model ? { ...e, model } : e)
       await finish('done')
       return result
     } catch (err) {

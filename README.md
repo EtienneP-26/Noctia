@@ -48,6 +48,8 @@ A plugin cannot force the main model, so set it once yourself, either in a sessi
 
 Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems to `architect` (Opus), everything else stays on Sonnet.
 
+To change the models of the lead and of the agents, see [Models](#models).
+
 ## What does what
 
 | File | Role |
@@ -59,12 +61,17 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `hooks/scripts/guard-git.sh` | Blocks `git add/commit/push/tag` unless unlocked. |
 | `hooks/scripts/guard-secrets.sh` | Blocks writes containing API keys or private keys; asks on suspicious literals. |
 | `hooks/scripts/set-git-mode.sh` | Stores the git mode. Called by `/noctia:git`. |
+| `hooks/scripts/set-team-mode.sh` | Turns agent teams on or off. Called by `/noctia:agent-teams`. |
+| `hooks/scripts/set-models.sh` | Stores the model choices. Called by `/noctia:models`. |
+| `hooks/scripts/lib-settings.sh` | Shared helpers that edit `.claude/settings.local.json`. |
 | `skills/code-quality` | How to write and test code. |
 | `skills/security-check` | Security checklist and review. |
 | `skills/audit` | Deep project audit (`/noctia:audit`). |
 | `skills/release-and-deploy` | Versioning vX.Y.Z, branches, CI/CD, changelog, docs. |
 | `skills/git-workflow` | How to commit and push once unlocked (co-author question included). |
 | `skills/git` | The user-only command that unlocks git (`/noctia:git`). |
+| `skills/agent-teams` | The user-only command that turns agent teams on or off (`/noctia:agent-teams`). |
+| `skills/models` | The user-only command that chooses the model of the lead and of each agent (`/noctia:models`). |
 | `skills/help-me-build-it` | Mentor mode (`/noctia:help-me-build-it`): Claude guides you instead of coding, you write the code. |
 | `agents/architect.md` | Opus: complex code, blocked decisions. |
 | `agents/reader.md` | Haiku: bulk reading (codebase, git history, data). |
@@ -89,6 +96,39 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | Visible guards | A toast when a Noctia guard blocks or questions a command (locked git, hard-coded secret), with the reason. | v0.3.5 |
 | Mentor panel | In mentor mode, a side panel with the steps (done, doing, to do) and a gauge of the hints used. | v0.3.6 |
 | Cost and context | The status line shows the model, how full the context is and the session cost. A toast warns at 80% of the context. | v0.3.7 |
+| Model choices | Every subagent and teammate starts on the model picked with `/noctia:models`. Needs Claude Code 2.1.287 or later. | v0.5.0 |
+
+## Agent teams
+
+`/noctia:agent-teams on|off|status` turns Claude Code [agent teams](https://code.claude.com/docs/en/agent-teams) on or off for the current project. A team is a lead plus teammates: separate sessions, each with its own context, that you can message by name and that share a task list.
+
+- `off` (default): subagents you name stay ordinary subagents.
+- `on`: a subagent you name starts as a teammate. Experimental, more tokens, and it changes how `/noctia:build` delegates.
+- `status`: shows the project's setting. A user or managed setting can differ.
+
+The switch is the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` variable, written to `.claude/settings.local.json` (personal, kept out of git through `.git/info/exclude`). `off` applies at once. After `on`, restart the session if no teammate appears.
+
+## Models
+
+`/noctia:models` chooses the model of the lead session and of each agent.
+
+```
+/noctia:models                          show the choices
+/noctia:models lead=opus developer=haiku
+/noctia:models reader=default           use the agent's own model again
+/noctia:models reset                    drop every choice
+```
+
+Roles: `lead`, `reader`, `architect`, `security-reviewer`, `developer`, `tester`. Models: `opus`, `sonnet`, `haiku`, `fable`, `default`.
+
+| What | Where it is stored | How it takes effect |
+|---|---|---|
+| Agents | `.noctia/models` (git-ignored) | The session-start hook tells Claude to pass the model on every Agent call and to name it in a teammate's spawn prompt. With `noctia-mods` on Claude Code 2.1.287 or later, the model is also forced when the agent starts. |
+| `lead` | `model` in `.claude/settings.local.json` | Next session. Use `/model <name>` for the current one. |
+
+Without `noctia-mods` the agent choices are an instruction Claude follows, not a guarantee. In a session already running, Claude applies a new choice because the command tells it to; the injected rule is read at session start.
+
+Lead plus a cheaper teammate, as in Devin Fusion: `/noctia:agent-teams on`, then `/noctia:models lead=opus developer=haiku tester=haiku`.
 
 ## Mentor mode
 
@@ -121,6 +161,7 @@ Both then appear as co-authors on the commit on GitHub. If you say no, no credit
 - `gh` commands (for example `gh pr create`) are not covered by the git guard.
 - The co-author trailer is applied by the `git-workflow` skill, so it depends on Claude following it.
 - Hook scripts need `bash`. On Windows, use Git Bash or WSL.
+- `/noctia:agent-teams` and `/noctia:models lead=...` need `jq` to change a `.claude/settings.local.json` that already exists. Without it they leave the file alone and print the line to add by hand. Creating the file needs nothing.
 - In bypass-permissions mode, hooks cannot prompt: in `ask` mode Noctia denies instead.
 
 ## License
