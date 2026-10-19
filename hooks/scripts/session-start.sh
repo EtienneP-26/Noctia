@@ -47,9 +47,9 @@ scan_project() {
     ".flake8" ".pylintrc" ".golangci*" ".rubocop.yml" "rustfmt.toml" ".clang-format" && style+=(config-files)
   has_python_tool_config && style+=(pyproject.toml)
 
-  echo "Found: ${found[*]:-none}"
+  [[ " ${found[*]} " == *" CONTRIBUTING "* ]] && echo "CONTRIBUTING exists: read it and follow it."
+  [ ${#style[@]} -gt 0 ] && echo "Style configs: ${style[*]}"
   echo "Missing: ${missing[*]:-none}"
-  echo "Linter/style configs: ${style[*]:-none detected}"
 }
 
 # git_summary: print the latest version tag and the current Noctia git mode.
@@ -57,8 +57,7 @@ git_summary() {
   local tag mode=""
   tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
   [ -f .noctia/git-mode ] && mode=$(tr -d '[:space:]' < .noctia/git-mode)
-  echo "Latest git tag: $tag"
-  echo "Noctia git mode: ${mode:-locked}"
+  echo "Git tag: $tag. Git mode: ${mode:-locked}."
 }
 
 # project_is_empty: succeed when the directory holds nothing but hidden git/noctia state.
@@ -70,16 +69,14 @@ project_is_empty() {
 build_context() {
   cat "$PLUGIN_ROOT/rules/core.md"
   echo
-  echo "## Noctia project scan (automatic)"
+  echo "## Project scan"
   if project_is_empty; then
-    echo "The directory is empty: this is a new project. Propose a minimal structure (tests, CI, docs, README) before coding."
+    echo "Empty directory: new project. Propose a minimal structure (tests, CI, docs, README) before coding."
     return
   fi
   scan_project
   git_summary
-  echo
-  echo "In your first reply, tell the user in 2 to 4 lines what is missing and offer /noctia:audit."
-  echo "If CONTRIBUTING was found, read it now and follow it. Do not repeat this report if you already gave it in this session."
+  echo "First reply only: say in 2 lines what is missing and offer /noctia:audit."
 }
 
 # json_escape: read text on stdin, write it as the inside of a JSON string.

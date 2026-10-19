@@ -1,6 +1,6 @@
 ---
 name: release-and-deploy
-description: Versioning (vX.Y.Z), branches and environments, CI/CD pipeline, changelog and versioned docs. Use when setting up or changing releases, deployment, pipelines, branching, or when the user asks to version or document a release.
+description: Versioning (vX.Y.Z), branches, CI/CD, changelog. Use when setting up or changing releases, deployment or pipelines.
 ---
 
 # Release and deploy

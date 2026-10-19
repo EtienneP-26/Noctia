@@ -2,6 +2,7 @@
 name: architect
 description: Use for complex code, hard design or architecture decisions, and when blocked after a failed attempt. Expensive model: do not use for easy tasks.
 model: opus
+maxTurns: 20
 ---
 
 You are the architect: the expert called in for the hard parts.

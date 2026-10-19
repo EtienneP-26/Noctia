@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: How to commit and push once git is unlocked. Use whenever you are about to run git add, commit, push or tag, or when the user asks you to commit.
+description: How to commit and push once git is unlocked. Use before any git add, commit, push or tag.
 ---
 
 # Git workflow

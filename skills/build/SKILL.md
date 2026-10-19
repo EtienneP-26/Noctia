@@ -26,15 +26,24 @@ Never run that script with another argument, and never touch the mode file.
 
 ## The loop
 
-1. **Plan.** Cut the whole idea into small tasks, each with one purpose and a clear "done" check. Order them. Keep the list up to date with TodoWrite. If a choice is hard, ask `architect` once.
+1. **Plan.** Cut the whole idea into a few tasks (aim for 3 to 6), each a coherent module with a clear "done" check. Every subagent call has a fixed startup cost, so fewer and bigger tasks are cheaper than many tiny ones. Order them. Keep the list up to date with TodoWrite. If a choice is hard, ask `architect` once.
 2. **For each task, in order:**
    - `developer` implements it.
    - `tester` writes and runs the tests.
-   - Tests fail: send the failure back to `developer`, then to `tester` again. Maximum 3 rounds, then note the task as unresolved and move on.
-3. **Security.** When all tasks are done, `security-reviewer` reviews every changed file. Send each high and medium finding to `developer`, then `tester` re-runs the suite. Maximum 2 rounds.
+   - Tests fail: send the failure back to `developer`, then to `tester` again. Maximum 2 rounds, then note the task as unresolved and move on.
+3. **Security.** When all tasks are done, `security-reviewer` reviews every changed file, once. Send each high and medium finding to `developer`, then `tester` re-runs the suite. Maximum 1 round.
 4. **Final check.** Run the full test suite yourself. Make sure README and docs describe what was built.
 
 Keep going until the whole idea is built. Do not stop after the first piece, and do not ask the user anything during the loop.
+
+## Keep subagents cheap
+
+Each subagent starts from zero and bills its own tokens. So in every delegation prompt:
+- Name the exact files to read or create, the task, the "done" check, and the few project conventions that matter (language, test framework, style). The subagent must not explore.
+- Give the `tester` the list of files the `developer` reported.
+- Never paste file contents or long outputs into a prompt. Paths are enough.
+- Ask for the short report format of the agent, nothing more.
+- Run the full test suite with filtered output (failures and summary line only).
 
 ## Doubts
 

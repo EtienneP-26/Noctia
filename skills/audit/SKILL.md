@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Deep audit of a project's health (tests, CI, docs, architecture, security basics, versioning). Use when the user runs /noctia:audit, asks what is missing in a project, or wants a state-of-the-project review.
+description: Audit project health (tests, CI, docs, architecture, security, versioning). Use on /noctia:audit or when asked what is missing.
 ---
 
 # Project audit

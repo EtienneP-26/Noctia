@@ -1,11 +1,11 @@
 ---
 name: security-check
-description: Security checklist and review procedure for code changes (secrets, input validation, injections, XSS, dependencies, least privilege). Use before finishing any change that touches user input, auth, data storage, network, files or dependencies, and when the user asks for a security check.
+description: Security checklist for code changes. Use before finishing a change that touches input, auth, data, network, files or dependencies.
 ---
 
 # Security check
 
-Review the change (`git diff`, or the files you touched) against each point. For a large change, delegate to the `security-reviewer` agent and give it the file list.
+Review the change (`git diff`, or the files you touched) against each point. Do the review yourself. Use the `security-reviewer` agent only if the user asks for it.
 
 ## 1. Secrets
 - No API key, password, token or private key in code, config, tests, logs or docs.

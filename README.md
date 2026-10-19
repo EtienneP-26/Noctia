@@ -58,6 +58,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `hooks/scripts/session-start.sh` | Injects the rules and scans the project (tests, CI, docs, architecture, CONTRIBUTING, linters). |
 | `hooks/scripts/guard-git.sh` | Blocks `git add/commit/push/tag` unless unlocked. |
 | `hooks/scripts/guard-secrets.sh` | Blocks writes containing API keys or private keys; asks on suspicious literals. |
+| `hooks/scripts/filter-test-output.sh` | Trims the output of a bare test command (`npm test`, `pytest`, `cargo test`...) to its last lines, keeps the exit code, saves the full log to a file. Needs `jq`. Approves that command automatically; your deny and ask rules still apply. Tests: `bash hooks/tests/filter-test-output.test.sh`. |
 | `hooks/scripts/set-git-mode.sh` | Stores the git mode. Called by `/noctia:git`. |
 | `skills/code-quality` | How to write and test code. |
 | `skills/security-check` | Security checklist and review. |
@@ -70,7 +71,7 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `agents/reader.md` | Haiku: bulk reading (codebase, git history, data). |
 | `agents/security-reviewer.md` | Opus: security review of a change. |
 | `agents/developer.md` | Sonnet: implements one task (used by `/noctia:build`). |
-| `agents/tester.md` | Sonnet: writes and runs tests (used by `/noctia:build`). |
+| `agents/tester.md` | Haiku: writes and runs tests (used by `/noctia:build`). |
 | `skills/build` | Autonomous build (`/noctia:build <idea>`): project manager, developer, tester and security reviewer build the whole idea, then report. |
 
 ## Mods (visual)
