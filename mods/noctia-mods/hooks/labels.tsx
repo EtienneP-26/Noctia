@@ -34,7 +34,7 @@ export const registerLabels: Register = on => {
     return (
       <Box>
         <Text color={colorOf(type)} bold>
-          [{shortName(type)}]{' '}
+          ● {shortName(type)}{' '}
         </Text>
         {inner}
       </Box>

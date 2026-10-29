@@ -2,11 +2,13 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Todo } from '../types'
+import { bar, PALETTE } from './theme'
 
 const PANE = 'noctia-tasks'
 const todos = atom({ plugin: 'noctia-mods', key: 'todos' } as const, [] as Todo[])
 
 const ICON = { completed: '✔', in_progress: '▶', pending: '○' } as const
+const COLOR = { completed: PALETTE.ok, in_progress: PALETTE.warn, pending: PALETTE.muted } as const
 
 /**
  * # Progress of a checklist
@@ -19,8 +21,7 @@ const ICON = { completed: '✔', in_progress: '▶', pending: '○' } as const
  */
 export const progress = (list: Pick<Todo, 'status'>[], width = 10) => {
   const done = list.filter(t => t.status === 'completed').length
-  const filled = list.length === 0 ? 0 : Math.round((done / list.length) * width)
-  return { done, total: list.length, bar: '█'.repeat(filled) + '░'.repeat(width - filled) }
+  return { done, total: list.length, bar: bar(done, list.length, width) }
 }
 
 /**
@@ -39,20 +40,30 @@ export const registerTasks: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const list = await read($, todos)
-    const { done, total, bar } = progress(list)
+    const { done, total, bar: gauge } = progress(list, 16)
+    const percent = total === 0 ? 0 : Math.round((done / total) * 100)
     return (
       <Box flexDirection="column">
-        <Text bold>
-          {bar} {done}/{total}
-        </Text>
-        {list.map(t => (
-          <Text
-            color={t.status === 'in_progress' ? 'yellow' : undefined}
-            dimColor={t.status === 'completed'}
-          >
-            {ICON[t.status]} {t.status === 'in_progress' ? t.activeForm : t.content}
+        <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
+          <Text color={PALETTE.accent} bold>
+            ✦ TASKS
           </Text>
-        ))}
+          <Text>
+            <Text color={PALETTE.ok}>{gauge}</Text> {done}/{total} · {percent}%
+          </Text>
+        </Box>
+        {list.length === 0 && (
+          <Box marginTop={1}>
+            <Text dimColor>No task yet.</Text>
+          </Box>
+        )}
+        <Box flexDirection="column" marginTop={1}>
+          {list.map((t, i) => (
+            <Text key={i} color={COLOR[t.status]} dimColor={t.status === 'completed'} bold={t.status === 'in_progress'}>
+              {ICON[t.status]} {t.status === 'in_progress' ? t.activeForm : t.content}
+            </Text>
+          ))}
+        </Box>
       </Box>
     )
   })

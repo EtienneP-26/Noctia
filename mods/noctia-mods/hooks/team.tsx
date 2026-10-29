@@ -2,17 +2,23 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { AgentRun } from '../types'
+import { duration, PALETTE } from './theme'
 
 const PANE = 'noctia-team'
 const agents = atom({ plugin: 'noctia-mods', key: 'agents' } as const, [] as AgentRun[])
 
 const COLORS: Record<string, string> = {
-  reader: 'blue',
-  architect: 'magenta',
-  'security-reviewer': 'red',
+  chief: '#fcd34d',
+  orchestrator: '#e879f9',
+  developer: '#86efac',
+  tester: '#67e8f9',
+  reader: '#93c5fd',
+  documenter: '#e2e8f0',
+  pentester: '#fca5a5',
 }
 
 const ICON = { running: '▶', done: '✔', error: '✘' } as const
+const STATUS_COLOR = { running: PALETTE.warn, done: PALETTE.ok, error: PALETTE.bad } as const
 
 /**
  * # Short name of an agent type
@@ -30,11 +36,11 @@ export const shortName = (type: string): string => type.split(':').pop() ?? type
  * ## Args
  * - type: resolved subagent type
  * ## Returns
- * A terminal colour name, grey for unknown types.
+ * A hex colour, grey for unknown types.
  * ## Example
- * colorOf('noctia:architect') // 'magenta'
+ * colorOf('noctia:orchestrator') // '#e879f9'
  */
-export const colorOf = (type: string): string => COLORS[shortName(type)] ?? 'gray'
+export const colorOf = (type: string): string => COLORS[shortName(type)] ?? PALETTE.muted
 
 /**
  * # Elapsed seconds of a run
@@ -91,18 +97,35 @@ export const registerTeam: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     const list = await read($, agents)
     const now = Date.now()
+    const count = (status: AgentRun['status']) => list.filter(a => a.status === status).length
     return (
       <Box flexDirection="column">
-        {list.length === 0 && <Text dimColor>No subagent yet.</Text>}
-        {list.map(a => (
-          <Box key={a.id} flexDirection="column">
-            <Text color={colorOf(a.type)} bold>
-              {ICON[a.status]} {shortName(a.type)}
+        <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1}>
+          <Text>
+            <Text color={PALETTE.accent} bold>
+              ✦ TEAM{'  '}
             </Text>
-            <Text dimColor>
-              {'  '}
-              {a.task} · {seconds(a, now)}s
-            </Text>
+            <Text color={STATUS_COLOR.running}>▶ {count('running')} running</Text>
+            <Text color={STATUS_COLOR.done}>{'  '}✔ {count('done')} done</Text>
+            <Text color={STATUS_COLOR.error}>{'  '}✘ {count('error')} failed</Text>
+          </Text>
+        </Box>
+        {list.length === 0 && (
+          <Box marginTop={1}>
+            <Text dimColor>No subagent yet. They show up here as the chief calls them.</Text>
+          </Box>
+        )}
+        {[...list].reverse().map(a => (
+          <Box key={a.id} flexDirection="column" marginTop={1}>
+            <Box justifyContent="space-between">
+              <Text color={colorOf(a.type)} bold>
+                ● {shortName(a.type)}
+              </Text>
+              <Text color={STATUS_COLOR[a.status]}>
+                {ICON[a.status]} {a.status} · {duration(seconds(a, now))}
+              </Text>
+            </Box>
+            <Text dimColor>{'  '}{a.task}</Text>
           </Box>
         ))}
       </Box>

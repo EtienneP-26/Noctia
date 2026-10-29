@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { MentorState, MentorStep } from '../types'
+import { PALETTE } from './theme'
 
 const PANE = 'noctia-mentor'
 const TOOL = 'mentor_progress'
@@ -12,6 +13,7 @@ const mentor = atom({ plugin: 'noctia-mods', key: 'mentor' } as const, {
 } as MentorState)
 
 const ICON = { done: '✔', doing: '▶', todo: '○' } as const
+const COLOR = { done: PALETTE.ok, doing: PALETTE.warn, todo: PALETTE.muted } as const
 const STATUSES = ['todo', 'doing', 'done']
 
 const isStep = (s: unknown): s is MentorStep =>
@@ -89,12 +91,21 @@ export const registerMentor: Register = on => {
     const { steps, hintLevel } = await read($, mentor)
     return (
       <Box flexDirection="column">
-        <Text bold>Hints {hintGauge(hintLevel)}</Text>
-        {steps.map(s => (
-          <Text color={s.status === 'doing' ? 'yellow' : undefined} dimColor={s.status === 'done'}>
-            {ICON[s.status]} {s.title}
+        <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
+          <Text color={PALETTE.accent} bold>
+            ✦ MENTOR
           </Text>
-        ))}
+          <Text>
+            Hints <Text color={PALETTE.warn}>{hintGauge(hintLevel)}</Text>
+          </Text>
+        </Box>
+        <Box flexDirection="column" marginTop={1}>
+          {steps.map((s, i) => (
+            <Text key={i} color={COLOR[s.status]} dimColor={s.status === 'done'} bold={s.status === 'doing'}>
+              {ICON[s.status]} {s.title}
+            </Text>
+          ))}
+        </Box>
       </Box>
     )
   })

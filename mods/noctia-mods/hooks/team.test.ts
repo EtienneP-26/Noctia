@@ -9,10 +9,10 @@ describe('team helpers', () => {
   })
 
   test('colorOf maps known agents and greys the rest', () => {
-    expect(colorOf('noctia:reader')).toBe('blue')
-    expect(colorOf('noctia:architect')).toBe('magenta')
-    expect(colorOf('noctia:security-reviewer')).toBe('red')
-    expect(colorOf('Explore')).toBe('gray')
+    expect(colorOf('noctia:reader')).toBe('#93c5fd')
+    expect(colorOf('noctia:orchestrator')).toBe('#e879f9')
+    expect(colorOf('noctia:pentester')).toBe('#fca5a5')
+    expect(colorOf('Explore')).toBe('#94a3b8')
   })
 
   test('seconds uses now while running and endedAt once done', () => {

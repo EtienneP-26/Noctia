@@ -38,15 +38,23 @@ You can also open `/plugin` and, in the marketplace settings, enable auto-update
 
 Claude Code decides a plugin changed from the `version` in `.claude-plugin/plugin.json`. If you maintain Noctia, bump that version (vX.Y.Z) with every release, or users will not see your changes.
 
-## Set Sonnet as your default model
+## The team
 
-A plugin cannot force the main model, so set it once yourself, either in a session with `/model sonnet` or permanently in `~/.claude/settings.json`:
+Noctia turns the session into a small team. The main agent is the `chief` (Opus): it talks to you and decides who works on what.
 
-```json
-{ "model": "sonnet" }
-```
+| Agent | Model | Role |
+|---|---|---|
+| `chief` | Opus | Main agent. Leads, asks you to approve the plan. |
+| `orchestrator` | Opus | Plans the project or feature, decides how to build it. |
+| `developer` | Sonnet | Writes the code, one feature at a time. |
+| `tester` | Haiku | Launches the project the normal way, uses the feature, writes its tests. |
+| `reader` | Haiku | Reads the codebase: where a feature or a problem is. |
+| `documenter` | Haiku | Short doc of each finished feature. |
+| `pentester` | Opus | Tries to break the project (security and abnormal use). |
 
-Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems to `architect` (Opus), everything else stays on Sonnet.
+`/noctia:build <idea>` runs the whole flow: plan, your approval, then for each feature developer, tester, documenter and a `feat/<feature>` branch; at the end the pentester attacks and the developer fixes.
+
+The plugin's `settings.json` makes `noctia:chief` the main agent of every session. It replaces the default Claude Code system prompt, and it runs on Opus. To turn this off, set `"agent"` to another agent in your own settings, or run `claude --agent <name>`.
 
 ## What does what
 
@@ -67,12 +75,15 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 | `skills/git-workflow` | How to commit and push once unlocked (co-author question included). |
 | `skills/git` | The user-only command that unlocks git (`/noctia:git`). |
 | `skills/help-me-build-it` | Mentor mode (`/noctia:help-me-build-it`): Claude guides you instead of coding, you write the code. |
-| `agents/architect.md` | Opus: complex code, blocked decisions. |
-| `agents/reader.md` | Haiku: bulk reading (codebase, git history, data). |
-| `agents/security-reviewer.md` | Opus: security review of a change. |
-| `agents/developer.md` | Sonnet: implements one task (used by `/noctia:build`). |
-| `agents/tester.md` | Haiku: writes and runs tests (used by `/noctia:build`). |
-| `skills/build` | Autonomous build (`/noctia:build <idea>`): project manager, developer, tester and security reviewer build the whole idea, then report. |
+| `settings.json` | Makes `noctia:chief` the main agent. |
+| `agents/chief.md` | Opus: main agent, leads the team. |
+| `agents/orchestrator.md` | Opus: plans and decides how to build. |
+| `agents/developer.md` | Sonnet: writes the code of one feature. |
+| `agents/tester.md` | Haiku: normal run, use and tests of a feature. |
+| `agents/reader.md` | Haiku: reads the codebase, locates features and problems. |
+| `agents/documenter.md` | Haiku: short doc of each feature. |
+| `agents/pentester.md` | Opus: attacks the project, reports the flaws. |
+| `skills/build` | `/noctia:build <idea>`: plan approved by you, feature loop with git branches, then pentest and fixes, then a report. |
 
 ## Mods (visual)
 
@@ -84,9 +95,10 @@ Noctia then delegates by itself: bulk reading to `reader` (Haiku), hard problems
 
 | Mod | What you see | Since |
 |---|---|---|
-| Team panel | A side panel listing every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
-| Agent labels | A coloured `[reader]`, `[architect]`… tag in front of each chat row that launches a subagent, same colours as the team panel. | v0.3.3 |
-| Task checklist | A side panel with the task list of the session: done, in progress, to do, and a progress bar. Reads `TodoWrite` only for now; `TaskCreate`/`TaskUpdate` are not handled yet. | v0.3.4 |
+| Noctia banner | A rounded band above the prompt: git mode, co-author, guards, team and mentor, each with a green / yellow / grey dot. `/noctia` opens a pane that says how each part is switched on or off, and brings the banner back after Hide. | v0.5.0 |
+| Team panel | A side panel with a summary (running, done, failed) and every subagent: colour, status, task, duration. `/team` reopens it. | v0.3.1 |
+| Agent labels | A coloured `● reader`, `● pentester`… tag in front of each chat row that launches a subagent, same colours as the team panel. | v0.3.3 |
+| Task checklist | A side panel with the task list of the session: done, in progress, to do, a progress bar and a percentage. Reads `TodoWrite` only for now; `TaskCreate`/`TaskUpdate` are not handled yet. | v0.3.4 |
 | Visible guards | A toast when a Noctia guard blocks or questions a command (locked git, hard-coded secret), with the reason. | v0.3.5 |
 | Mentor panel | In mentor mode, a side panel with the steps (done, doing, to do) and a gauge of the hints used. | v0.3.6 |
 | Cost and context | The status line shows the model, how full the context is and the session cost. A toast warns at 80% of the context. | v0.3.7 |

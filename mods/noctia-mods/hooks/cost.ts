@@ -1,18 +1,11 @@
 import type { Register } from 'claude-code'
 
-const WARN_AT = 80
+import { refresh } from './noctia'
+import { shortModel } from './status'
 
-/**
- * # Short model name
- * ## Args
- * - id: a model id such as `claude-sonnet-5-5` or `claude-haiku-4-5-20251001`
- * ## Returns
- * The id without the `claude-` prefix and without a trailing date.
- * ## Example
- * shortModel('claude-haiku-4-5-20251001') // 'haiku-4-5'
- */
-export const shortModel = (id: string): string =>
-  id.replace(/^claude-/, '').replace(/-\d{8}$/, '')
+export { shortModel }
+
+const WARN_AT = 80
 
 /**
  * # Status line text
@@ -44,6 +37,7 @@ export const registerCost: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const [model, usage] = await Promise.all([$.session.model(), $.session.usage()])
     const percent = usage.context.percent
+    await refresh($)
     $.ui.status(statusText(model, usage.cost?.usd, percent))
     if (percent !== undefined && percent >= WARN_AT && !warned) {
       warned = true
