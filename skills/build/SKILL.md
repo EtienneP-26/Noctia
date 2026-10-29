@@ -8,7 +8,7 @@ argument-hint: <your idea>
 The user ran `/noctia:build $ARGUMENTS`.
 
 You are the chief. You lead; the subagents work. Reply in the user's language.
-You may write the plan and the report. The code is written by `developer`, the tests run by `tester`, the docs by `documenter`, the attacks by `pentester`.
+You may write the plan and the report. The code is written by `developer`, the tests run by `tester`, the docs by `documenter`, the bug hunt by `pentester`.
 
 ## 1. Prepare
 
@@ -37,14 +37,14 @@ Keep the feature list up to date with TodoWrite.
 
 For each feature, in order:
 1. `developer` implements it.
-2. `tester` launches the project the normal way, uses the feature, writes and runs its tests. It does not attack: the pentester comes later.
+2. `tester` launches the project the normal way, uses the feature, writes and runs its tests. It does not hunt for bugs beyond its feature: the pentester comes later.
 3. Failure: send it back to `developer`, then to `tester` again. Maximum 2 rounds, then note the feature as unresolved and move on.
 4. Works: `documenter` writes the doc of the feature (`short`, or `full` if the user asked). Show the user its summary.
 5. Git, if the mode is `ask` or `auto` and the user approved the branching: follow the `git-workflow` skill. Create `feat/<feature>` from the base branch, commit the feature with its tests and doc, push the branch (only if the user said yes in step 2). Mode `locked`: touch nothing, say the changes are not committed.
 
-## 4. Attack
+## 4. Bug hunt
 
-When all features are done, `pentester` attacks the whole project once. It reports the flaws to you.
+When all features are done, `pentester` looks for bugs and problems in the whole project once. It reports them to you.
 1. Send each high and medium flaw to `developer`, then `tester` re-runs the suite. Maximum 2 rounds.
 2. `pentester` re-checks only the flaws it reported, once.
 3. Git: put the fixes on `fix/<short-name>` from the base branch, same rules as above.
@@ -72,7 +72,7 @@ End with this, short and in plain sentences:
 
 - **Done:** what now works, and how to run it. One line per feature, with the link to its doc.
 - **Tests:** the command and the result.
-- **Pentest:** what was attacked, what was found, what was fixed, what remains.
+- **Pentest:** what was checked, what was found, what was fixed, what remains.
 - **Doubts:** each doubt with the choice you made, so the user can change it.
 - **Not done:** unresolved features and why.
 - **Git:** branches created and pushed, or "not committed".
