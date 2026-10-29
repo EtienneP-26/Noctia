@@ -1,8 +1,16 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { features, parseCoauthor, parseGitMode } from './status'
+import { contextColor, features, parseCoauthor, parseGitMode, shortModel } from './status'
+import { PALETTE } from './theme'
 
-const state = { core: true, gitMode: 'locked' as const, coauthor: 'unset' as const, model: 'opus-5-5' }
+const state = {
+  core: true,
+  gitMode: 'locked' as const,
+  coauthor: 'unset' as const,
+  model: 'opus-5-5',
+  percent: null,
+  usd: null,
+}
 
 describe('noctia status', () => {
   test('git mode falls back to locked', () => {
@@ -36,5 +44,17 @@ describe('noctia status', () => {
     const rows = features(state, 2, true)
     expect(rows.find(f => f.key === 'team')?.value).toBe('2 running')
     expect(rows.find(f => f.key === 'mentor')?.tone).toBe('ok')
+  })
+
+  test('shortens model ids', () => {
+    expect(shortModel('claude-sonnet-5-5')).toBe('sonnet-5-5')
+    expect(shortModel('claude-haiku-4-5-20251001')).toBe('haiku-4-5')
+  })
+
+  test('the context gauge turns yellow at 60 and red at 80', () => {
+    expect(contextColor(null)).toBe(PALETTE.muted)
+    expect(contextColor(10)).toBe(PALETTE.ok)
+    expect(contextColor(60)).toBe(PALETTE.warn)
+    expect(contextColor(80)).toBe(PALETTE.bad)
   })
 })

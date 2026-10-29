@@ -2,8 +2,8 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { NoctiaState } from '../types'
-import { features, parseCoauthor, parseGitMode, shortModel, STATE_DIR, TONE_COLOR } from './status'
-import { PALETTE } from './theme'
+import { contextColor, features, parseCoauthor, parseGitMode, shortModel, STATE_DIR, TONE_COLOR } from './status'
+import { bar, PALETTE } from './theme'
 
 const PANE = 'noctia-status'
 const BANNER_KEYS = ['git', 'coauthor', 'guards', 'team', 'mentor']
@@ -16,6 +16,8 @@ const noctia = atom({ plugin: 'noctia-mods', key: 'noctia' } as const, {
   gitMode: 'locked',
   coauthor: 'unset',
   model: '',
+  percent: null,
+  usd: null,
 } as NoctiaState)
 const isBannerHidden = atom({ plugin: 'noctia-mods', key: 'isBannerHidden' } as const, false)
 
@@ -37,17 +39,20 @@ const isNoctiaCommand = (c: { name: string; plugin?: string }): boolean =>
  * - $: the engine interface
  */
 export async function refresh($: EngineInterface): Promise<void> {
-  const [mode, coauthor, model, commands] = await Promise.all([
+  const [mode, coauthor, model, commands, usage] = await Promise.all([
     readStateFile($, 'git-mode'),
     readStateFile($, 'coauthor'),
     $.session.model().catch(() => ''),
     $.command.list().catch(() => []),
+    $.session.usage().catch(() => undefined),
   ])
   const next: NoctiaState = {
     core: commands.some(isNoctiaCommand),
     gitMode: parseGitMode(mode),
     coauthor: parseCoauthor(coauthor),
     model: shortModel(model),
+    percent: usage?.context.percent ?? null,
+    usd: usage?.cost?.usd ?? null,
   }
   const prev = await read($, noctia)
   if (JSON.stringify(prev) !== JSON.stringify(next)) await update($, noctia, () => next)
@@ -94,13 +99,29 @@ export const registerNoctia: Register = on => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const { state, rows } = await currentRows($)
     const shown = rows.filter(f => BANNER_KEYS.includes(f.key))
+    const percent = state.percent === null ? null : Math.round(state.percent)
     return (
-      <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
-        <Box flexWrap="wrap">
-          <Text color={PALETTE.accent} bold>
-            ☾ NOCTIA{state.core ? '' : ' (not installed)'}
-            {'  '}
+      <Box flexDirection="column" borderStyle="round" borderColor={PALETTE.accent} paddingX={1}>
+        <Box justifyContent="space-between">
+          <Text>
+            <Text color={PALETTE.accent} bold>
+              ☾ NOCTIA{state.core ? '' : ' (not installed)'}
+            </Text>
+            <Text dimColor>{'  '}{state.model}</Text>
           </Text>
+          <Box>
+            {percent !== null && (
+              <Text>
+                <Text dimColor>ctx </Text>
+                <Text color={contextColor(percent)}>{bar(percent, 100, 10)}</Text> {percent}%{'   '}
+              </Text>
+            )}
+            {state.usd !== null && <Text>${state.usd.toFixed(2)}{'   '}</Text>}
+            <Text dimColor>/noctia </Text>
+            <Button key="hide" label="Hide" onPress={() => update($, isBannerHidden, () => true)} />
+          </Box>
+        </Box>
+        <Box flexWrap="wrap">
           {shown.map(f => (
             <Text key={f.key}>
               <Text color={TONE_COLOR[f.tone]}>● </Text>
@@ -108,10 +129,6 @@ export const registerNoctia: Register = on => {
               {'   '}
             </Text>
           ))}
-        </Box>
-        <Box>
-          <Text dimColor>/noctia </Text>
-          <Button key="hide" label="Hide" onPress={() => update($, isBannerHidden, () => true)} />
         </Box>
       </Box>
     )

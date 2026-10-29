@@ -29,6 +29,18 @@ export const TONE_COLOR: Record<Tone, string> = {
 export const shortModel = (id: string): string =>
   id.replace(/^claude-/, '').replace(/-\d{8}$/, '')
 
+/**
+ * # Colour of the context gauge
+ * ## Args
+ * - percent: share of the context window used, null when unknown
+ * ## Returns
+ * Green under 60%, yellow under 80%, red above, grey when unknown.
+ * ## Example
+ * contextColor(85) // PALETTE.bad
+ */
+export const contextColor = (percent: number | null): string =>
+  percent === null ? PALETTE.muted : percent >= 80 ? PALETTE.bad : percent >= 60 ? PALETTE.warn : PALETTE.ok
+
 /** Folder of the per-project Noctia state, read here and never written. */
 export const STATE_DIR = '.noctia'
 

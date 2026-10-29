@@ -22,6 +22,8 @@ export type NoctiaState = {
   gitMode: 'locked' | 'ask' | 'auto'
   coauthor: 'yes' | 'no' | 'unset'
   model: string
+  percent: number | null
+  usd: number | null
 }
 
 declare module 'claude-code' {
