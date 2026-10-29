@@ -17,5 +17,5 @@ Once unlocked:
    Co-Authored-By: Claude <noreply@anthropic.com>
 ```
    The credit is always these same two lines, whichever model did the work. If the user later changes their mind, run the script again with the new answer. If CONTRIBUTING.md forbids AI credit, do not ask: run the script with `no` and say why.
-4. **Push is a separate question.** Ask "Do you want me to push?" every time, even in auto mode. Never force-push. Never push to main or a protected branch unless CONTRIBUTING.md says that is the workflow.
+4. **Push is a separate question.** Ask "Do you want me to push?" every time, even in auto mode. Exception: during `/noctia:build`, the user's approval of the plan covers pushing the `feat/*` and `fix/*` branches of that build, and nothing else. Never force-push. Never push to main or a protected branch unless CONTRIBUTING.md says that is the workflow.
 5. **Tags and releases** follow the `release-and-deploy` skill.

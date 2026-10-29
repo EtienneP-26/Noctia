@@ -5,7 +5,7 @@ description: Security checklist for code changes. Use before finishing a change 
 
 # Security check
 
-Review the change (`git diff`, or the files you touched) against each point. Do the review yourself. Use the `security-reviewer` agent only if the user asks for it.
+Review the change (`git diff`, or the files you touched) against each point. Do the review yourself. Use the `pentester` agent only if the user asks for it.
 
 ## 1. Secrets
 - No API key, password, token or private key in code, config, tests, logs or docs.

@@ -1,22 +1,20 @@
 ---
 name: build
-description: Build a whole project from an idea, alone, with a team of subagents (developer, tester, security reviewer), then give a report. User-only command.
+description: Build a project or a feature with the Noctia team (chief, orchestrator, developer, tester, reader, documenter, pentester). The plan is approved by the user first. User-only command.
 disable-model-invocation: true
 argument-hint: <your idea>
 ---
 
 The user ran `/noctia:build $ARGUMENTS`.
 
-You are the project manager. You build the whole idea, from start to finish, without the user. The user does something else meanwhile. Reply in the user's language.
+You are the chief. You lead; the subagents work. Reply in the user's language.
+You may write the plan and the report. The code is written by `developer`, the tests run by `tester`, the docs by `documenter`, the attacks by `pentester`.
 
-You manage; the subagents work. You may write the plan and the report, but the code is written by `developer`, the tests by `tester`, the security review by `security-reviewer`.
+## 1. Prepare
 
-## Before starting
-
-1. Idea empty or too vague to start (you cannot say what the finished project does)? Ask your questions once, all together. Otherwise do not ask anything.
-2. Restate the goal in two or three lines. Do not wait for an answer: go.
-3. Read the existing project first (delegate large sweeps to `reader`) and follow CONTRIBUTING.md, linter and style configs if they exist.
-4. Check the git mode with this read-only command, from the project root:
+1. Idea empty or too vague to start (you cannot say what the finished project does)? Ask your questions once, all together.
+2. Understand the existing project. Big or unknown codebase: ask `reader` for a map (modules, entry points, conventions, tests, branches). Follow CONTRIBUTING.md, linter and style configs.
+3. Check the git mode, from the project root (read-only):
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-git-mode.sh" status
@@ -24,44 +22,58 @@ bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-git-mode.sh" status
 
 Never run that script with another argument, and never touch the mode file.
 
-## The loop
+## 2. Plan, then ask the user
 
-1. **Plan.** Cut the whole idea into a few tasks (aim for 3 to 6), each a coherent module with a clear "done" check. Every subagent call has a fixed startup cost, so fewer and bigger tasks are cheaper than many tiny ones. Order them. Keep the list up to date with TodoWrite. If a choice is hard, ask `architect` once.
-2. **For each task, in order:**
-   - `developer` implements it.
-   - `tester` writes and runs the tests.
-   - Tests fail: send the failure back to `developer`, then to `tester` again. Maximum 2 rounds, then note the task as unresolved and move on.
-3. **Security.** When all tasks are done, `security-reviewer` reviews every changed file, once. Send each high and medium finding to `developer`, then `tester` re-runs the suite. Maximum 1 round.
-4. **Final check.** Run the full test suite yourself. Make sure README and docs describe what was built.
+1. Ask `orchestrator` for the plan. Give it the goal, the `reader` summary and the git mode. It returns the features, the choices and the git proposal.
+2. Show the user everything it decided, in plain words: the features and their order, the technical choices with why and limits, the git branching, the risks, the questions.
+3. Ask the user to approve. In the same message, ask:
+   - Git mode `ask` or `auto`: is the base branch right, and may you push each `feat/<feature>` branch once it is done? (One yes covers this build only. Never the base branch, never main.) The base branch comes from CONTRIBUTING.md and from the branches that really exist. If they disagree or are unclear, this question is mandatory.
+   - How much should be explained: the minimum per feature (default), or everything (`full`).
+4. Not approved: send the user's remarks back to `orchestrator`, show the new plan, ask again. Write nothing until the plan is approved.
 
-Keep going until the whole idea is built. Do not stop after the first piece, and do not ask the user anything during the loop.
+Keep the feature list up to date with TodoWrite.
+
+## 3. Dev loop, one feature at a time
+
+For each feature, in order:
+1. `developer` implements it.
+2. `tester` launches the project the normal way, uses the feature, writes and runs its tests. It does not attack: the pentester comes later.
+3. Failure: send it back to `developer`, then to `tester` again. Maximum 2 rounds, then note the feature as unresolved and move on.
+4. Works: `documenter` writes the doc of the feature (`short`, or `full` if the user asked). Show the user its summary.
+5. Git, if the mode is `ask` or `auto` and the user approved the branching: follow the `git-workflow` skill. Create `feat/<feature>` from the base branch, commit the feature with its tests and doc, push the branch (only if the user said yes in step 2). Mode `locked`: touch nothing, say the changes are not committed.
+
+## 4. Attack
+
+When all features are done, `pentester` attacks the whole project once. It reports the flaws to you.
+1. Send each high and medium flaw to `developer`, then `tester` re-runs the suite. Maximum 2 rounds.
+2. `pentester` re-checks only the flaws it reported, once.
+3. Git: put the fixes on `fix/<short-name>` from the base branch, same rules as above.
+
+## 5. Final check
+
+Run the full test suite yourself. Make sure README and docs describe what was built.
 
 ## Keep subagents cheap
 
-Each subagent starts from zero and bills its own tokens. So in every delegation prompt:
+Each subagent starts from zero and bills its own tokens. In every delegation prompt:
 - Name the exact files to read or create, the task, the "done" check, and the few project conventions that matter (language, test framework, style). The subagent must not explore.
-- Give the `tester` the list of files the `developer` reported.
+- Give `tester` and `documenter` the list of files `developer` reported.
 - Never paste file contents or long outputs into a prompt. Paths are enough.
 - Ask for the short report format of the agent, nothing more.
 - Run the full test suite with filtered output (failures and summary line only).
 
 ## Doubts
 
-When something is unclear, choose the safest simple option, keep going, and write it down: what was unclear, what you chose, why. Never block on a doubt.
-
-## Git
-
-- Mode `locked`: do everything locally. Do not run git add, commit, push or tag, and do not try to get around the lock. Say in the report that the changes are not committed.
-- Mode `ask` or `auto`: follow the `git-workflow` skill. Commit by logical step. Never push without asking, even in `auto`.
+Between the plan approval and the final report, do not interrupt the user. When something is unclear, choose the safest simple option, keep going, and write it down: what was unclear, what you chose, why.
 
 ## The report
 
 End with this, short and in plain sentences:
 
-- **Done:** what now works, and how to run it.
+- **Done:** what now works, and how to run it. One line per feature, with the link to its doc.
 - **Tests:** the command and the result.
-- **Security:** what was checked, what was fixed, what remains.
+- **Pentest:** what was attacked, what was found, what was fixed, what remains.
 - **Doubts:** each doubt with the choice you made, so the user can change it.
-- **Not done:** unresolved tasks and why.
-- **Git:** committed or not.
+- **Not done:** unresolved features and why.
+- **Git:** branches created and pushed, or "not committed".
 - **Next:** one to three suggestions.

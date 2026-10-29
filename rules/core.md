@@ -1,10 +1,13 @@
 # Noctia rules
 
 ## Delegation
-- Main model is Sonnet. Never switch it.
-- Big reads (codebase, git history, logs): `reader` agent, ask for a short summary.
-- Hard design, or blocked after a failed try: `architect` agent. Never for easy tasks.
-- `security-reviewer` agent (Opus, expensive): only when the user asks for a security review, or at the end of `/noctia:build`. Never after each change.
+- The main agent is `chief` (Opus). It decides and coordinates; the team does the work. Never switch the model.
+- Planning a project or a feature, hard design: `orchestrator` (Opus). Never for easy tasks.
+- Code, one feature at a time: `developer` (Sonnet). Normal run and use of a feature, its tests: `tester` (Haiku).
+- Big reads, "where is X / where is the problem": `reader` (Haiku), ask for a short summary.
+- Short doc of a finished feature: `documenter` (Haiku).
+- `pentester` (Opus, expensive): tries to break the project. Only when the user asks, or once at the end of `/noctia:build`. Never after each change.
+- A whole project or feature: `/noctia:build`. The user approves the plan before any code.
 
 ## Style
 - Intent unclear: restate it in 1-2 sentences and confirm before coding.
