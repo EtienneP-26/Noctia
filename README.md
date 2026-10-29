@@ -78,9 +78,9 @@ Noctia turns the session into a small team. The main agent is the `chief` (Opus)
 | `tester` | Haiku | Launches the project the normal way, uses the feature, writes its tests. |
 | `reader` | Haiku | Reads the codebase: where a feature or a problem is. |
 | `documenter` | Haiku | Short doc of each finished feature. |
-| `pentester` | Opus | Tries to break the project (security and abnormal use). |
+| `pentester` | Opus | Finds the bugs and problems of the project. |
 
-`/noctia:build <idea>` runs the whole flow: plan, your approval, then for each feature developer, tester, documenter and a `feat/<feature>` branch; at the end the pentester attacks and the developer fixes.
+`/noctia:build <idea>` runs the whole flow: plan, your approval, then for each feature developer, tester, documenter and a `feat/<feature>` branch; at the end the pentester looks for bugs and problems and the developer fixes them.
 
 The plugin's `settings.json` makes `noctia:chief` the main agent of every session. It replaces the default Claude Code system prompt, and it runs on Opus. To turn this off, set `"agent"` to another agent in your own settings, or run `claude --agent <name>`.
 
@@ -110,7 +110,7 @@ The plugin's `settings.json` makes `noctia:chief` the main agent of every sessio
 | `agents/tester.md` | Haiku: normal run, use and tests of a feature. |
 | `agents/reader.md` | Haiku: reads the codebase, locates features and problems. |
 | `agents/documenter.md` | Haiku: short doc of each feature. |
-| `agents/pentester.md` | Opus: attacks the project, reports the flaws. |
+| `agents/pentester.md` | Opus: finds the bugs and problems, reports them. |
 | `skills/build` | `/noctia:build <idea>`: plan approved by you, feature loop with git branches, then pentest and fixes, then a report. |
 
 ## Mods (visual)
