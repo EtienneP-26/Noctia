@@ -1,0 +1,39 @@
+{
+  "noctia-guard-git": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-git",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "noctia-guard-secrets": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-secrets",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "noctia-session-start": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" session-start SessionStart",
+        "timeout": 10
+      }
+    ]
+  }
+}

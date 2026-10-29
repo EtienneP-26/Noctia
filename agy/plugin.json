@@ -1,0 +1,5 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "noctia",
+  "description": "Engineering rules for Antigravity CLI: KISS, modular tested code, security checks, guarded git, and a team of agents (pro-model chief, orchestrator, pentester and developer; flash-model tester, reader and documenter)."
+}
