@@ -27,12 +27,45 @@ input_has() {
   grep -qE "$1" <<<"$INPUT"
 }
 
-# guard_state_file: refuse any tool call that touches the mode file directly.
+# deny_unlock: refuse a change of the mode file; the user must run the command in their own terminal.
+deny_unlock() {
+  decide deny "Noctia: the git mode is user-controlled. Do not edit it or run set-git-mode.sh with a mode. Ask the user to type /noctia:git <locked|ask|auto> in the chat. In agy the user runs this in their terminal: bash $(dirname "$0")/set-git-mode.sh <locked|ask|auto>"
+  exit 0
+}
+
+# is_bash: succeed when the hook input is a Bash tool call.
+is_bash() {
+  input_has '"tool_name"[[:space:]]*:[[:space:]]*"Bash"'
+}
+
+# unlock_script_call: succeed if set-git-mode.sh is run with anything but status (or no argument).
+unlock_script_call() {
+  local rest
+  while IFS= read -r rest; do
+    grep -qE '^(\\")?[[:space:]]*(status)?[[:space:]]*(\\n|"|[;&|]|$)' <<<"$rest" || return 0
+  done < <(sed 's/set-git-mode\.sh/\n@@/g' <<<"$INPUT" | grep '^@@' | sed 's/^@@//')
+  return 1
+}
+
+# mentions_mode_file: succeed if the command names git-mode (set-git-mode.sh itself does not count).
+mentions_mode_file() {
+  sed 's/set-git-mode\.sh//g' <<<"$INPUT" | grep -q 'git-mode'
+}
+
+# read_only_command: succeed if the command is a plain read (cat, head, tail, grep, ls, wc) with no shell tricks.
+read_only_command() {
+  input_has '"command"[[:space:]]*:[[:space:]]*"(cat|head|tail|grep|ls|wc)[[:space:]][^;&|<>$`()\\]*"'
+}
+
+# guard_state_file: refuse any attempt to change the mode file, by Bash or by Write/Edit.
 guard_state_file() {
-  if input_has '\.noctia/git-mode'; then
-    decide deny "Noctia: the git mode file is user-controlled. Do not edit it. Ask the user to run /noctia:git."
-    exit 0
+  if is_bash; then
+    unlock_script_call && deny_unlock
+    mentions_mode_file && ! read_only_command && deny_unlock
+  elif input_has '"file_path"[[:space:]]*:[[:space:]]*"[^"]*git-mode"'; then
+    deny_unlock
   fi
+  return 0
 }
 
 # guard_git_command: apply the current mode to a Bash git write command.

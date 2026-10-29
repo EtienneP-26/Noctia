@@ -7,13 +7,13 @@ argument-hint: locked | ask | auto | status
 
 The user ran `/noctia:git $ARGUMENTS`.
 
-Run this from the project root, then report the result in one line:
+The `UserPromptSubmit` hook already set the mode from the user's command. Do not run `set-git-mode.sh` with a mode, the guard denies it.
+
+Only confirm, then report the result in one line:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-git-mode.sh" $ARGUMENTS
+bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-git-mode.sh" status
 ```
-
-If no argument was given, the script shows the current mode.
 
 Modes:
 - `locked` (default): git add, commit, push and tag are blocked.
