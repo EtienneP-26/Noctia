@@ -1,0 +1,33 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq if missing
+        run: command -v jq >/dev/null || (sudo apt-get update && sudo apt-get install -y jq)
+
+      - name: Run the shell tests
+        run: |
+          fail=0
+          for t in hooks/tests/*.test.sh scripts/tests/*.test.sh; do
+            echo "== $t"
+            bash "$t" || fail=1
+          done
+          exit "$fail"
+
+      - name: Check that agy/ is in sync
+        run: |
+          bash scripts/build-agy.sh
+          git diff --exit-code -- agy/
+          test -z "$(git status --porcelain -- agy/)"

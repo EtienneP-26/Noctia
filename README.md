@@ -2,7 +2,7 @@
 
 # Noctia
 
-A Claude Code plugin that makes Claude develop like a careful senior engineer, with rules you define: KISS, small modular functions, tests with every change, security checks, guarded git, and model routing.
+A plugin for Claude Code and Antigravity CLI (agy) that makes the AI develop like a careful senior engineer, with rules you define: KISS, small modular functions, tests with every change, security checks, guarded git, and model routing.
 
 ## Install (local test)
 
@@ -15,6 +15,34 @@ then
 ```
 
 Then inside Claude Code, run `/help` and look for the `noctia:` skills.
+
+## Use Noctia in Antigravity CLI (agy)
+
+Noctia also works in the Google Antigravity CLI (`agy`, in the terminal). The plugin is generated into the `agy/` folder.
+
+```bash
+git clone https://github.com/EtienneP-26/Noctia && cd Noctia && bash scripts/install-agy.sh
+```
+
+The script builds `agy/`, runs `agy plugin install ./agy`, then asks before adding the Noctia status line to your agy settings (a backup is made). Use `--yes` to skip the question, or `--no-statusline` to skip that step. It needs bash and jq.
+
+What works:
+
+- The core rules, always on.
+- The skills as slash commands: `/build`, `/git`, `/audit`...
+- The agents: `chief`, `orchestrator`, `developer` and `pentester` on the pro model; `tester`, `reader` and `documenter` on the flash model.
+- The git lock, the secret guard and the session start info.
+- The Noctia status line.
+
+To change the git mode in agy, run this in your own terminal, from your project root:
+
+```bash
+bash ~/.gemini/antigravity-cli/plugins/noctia/hooks/scripts/set-git-mode.sh <locked|ask|auto>
+```
+
+What does not port: the Claude Code mods (panels, toasts) and the test output filtering.
+
+More in [Docs/agy.md](Docs/agy.md).
 
 ## Update
 
