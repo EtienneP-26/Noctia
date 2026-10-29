@@ -10,7 +10,7 @@ description: Noctia rules
 - Code, one feature at a time: `developer` (pro). Normal run and use of a feature, its tests: `tester` (flash).
 - Big reads, "where is X / where is the problem": `reader` (flash), ask for a short summary.
 - Short doc of a finished feature: `documenter` (flash).
-- `pentester` (pro, expensive): tries to break the project. Only when the user asks, or once at the end of `/build`. Never after each change.
+- `pentester` (pro, expensive): finds the bugs and problems of the project. Only when the user asks, or once at the end of `/build`. Never after each change.
 - A whole project or feature: `/build`. The user approves the plan before any code.
 
 ## Style
