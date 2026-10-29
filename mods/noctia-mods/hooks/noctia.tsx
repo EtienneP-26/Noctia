@@ -98,7 +98,7 @@ export const registerNoctia: Register = on => {
       <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
         <Box flexWrap="wrap">
           <Text color={PALETTE.accent} bold>
-            ✦ NOCTIA{state.core ? '' : ' (not installed)'}
+            ☾ NOCTIA{state.core ? '' : ' (not installed)'}
             {'  '}
           </Text>
           {shown.map(f => (
@@ -123,7 +123,7 @@ export const registerNoctia: Register = on => {
     return (
       <Box flexDirection="column">
         <Text color={PALETTE.accent} bold>
-          ✦ What Noctia has on or off
+          ☾ What Noctia has on or off
         </Text>
         <Text>
           <Text color={TONE_COLOR.ok}>● on</Text>

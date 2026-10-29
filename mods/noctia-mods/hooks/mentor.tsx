@@ -93,7 +93,7 @@ export const registerMentor: Register = on => {
       <Box flexDirection="column">
         <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
           <Text color={PALETTE.accent} bold>
-            ✦ MENTOR
+            ☾ MENTOR
           </Text>
           <Text>
             Hints <Text color={PALETTE.warn}>{hintGauge(hintLevel)}</Text>

@@ -103,7 +103,7 @@ export const registerTeam: Register = on => {
         <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1}>
           <Text>
             <Text color={PALETTE.accent} bold>
-              ✦ TEAM{'  '}
+              ☾ TEAM{'  '}
             </Text>
             <Text color={STATUS_COLOR.running}>▶ {count('running')} running</Text>
             <Text color={STATUS_COLOR.done}>{'  '}✔ {count('done')} done</Text>

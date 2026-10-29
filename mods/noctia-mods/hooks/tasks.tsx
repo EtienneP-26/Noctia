@@ -46,7 +46,7 @@ export const registerTasks: Register = on => {
       <Box flexDirection="column">
         <Box borderStyle="round" borderColor={PALETTE.accent} paddingX={1} justifyContent="space-between">
           <Text color={PALETTE.accent} bold>
-            ✦ TASKS
+            ☾ TASKS
           </Text>
           <Text>
             <Text color={PALETTE.ok}>{gauge}</Text> {done}/{total} · {percent}%
