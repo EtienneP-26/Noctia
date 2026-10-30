@@ -87,6 +87,12 @@ write_agent() {
   } > "$OUT/agents/$name.md"
 }
 
+# strip_picker: stdin to stdout, replace the AskUserQuestion picker block (agy has no picker).
+strip_picker() {
+  sed -E '/^<!-- picker -->$/,/^<!-- \/picker -->$/c\
+If the argument is empty, run the `status` command above, report the mode, and tell the user to change it with `bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-git-mode.sh" <mode>` (locked, ask or auto) in their own terminal, from the project root.'
+}
+
 # write_skill DIR: write one agy skill and copy its other files.
 write_skill() {
   local name dest
@@ -96,7 +102,7 @@ write_skill() {
   cp -pR "$1/." "$dest/"
   {
     printf -- '---\nname: %s\ndescription: %s\n---\n' "$name" "$(fm_value "$1/SKILL.md" description | adapt)"
-    body "$1/SKILL.md" | adapt
+    body "$1/SKILL.md" | strip_picker | adapt
   } > "$dest/SKILL.md"
 }
 

@@ -57,6 +57,11 @@ test_no_leftover_phrases() {
   ! grep -rEq 'Runs on pro|pro chief|noreply@anthropic\.com|/git <|\bClaude\b' "$AGY/rules" "$AGY/agents" "$AGY/skills" "$AGY/plugin.json" "$AGY/hooks/scripts/guard-git.sh"
 }
 
+test_no_picker_in_agy() {
+  ! grep -rEq 'AskUserQuestion|picker' "$AGY/skills" "$AGY/hooks.json" &&
+  grep -q 'in their own terminal, from the project root' "$AGY/skills/git/SKILL.md"
+}
+
 test_hooks_json_valid() {
   local script
   jq -e . "$AGY/hooks.json" >/dev/null || return 1

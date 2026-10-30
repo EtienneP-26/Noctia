@@ -10,6 +10,8 @@ STATE_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.noctia/git-mode"
 # Matches "git [-C dir | -c x=y | --flag]... add|commit|push|tag" anywhere in a command.
 GIT_WRITE='(^|[^[:alnum:]_./-])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(add|commit|push|tag)([[:space:]";&|\\]|$)'
 
+PICKER_MARKER='Noctia: choose the git mode for this project'
+
 # decide DECISION REASON: print the PreToolUse permission decision as JSON. Reason must contain no quotes.
 decide() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' "$1" "$2"
@@ -87,7 +89,36 @@ guard_git_command() {
   esac
 }
 
+# picker_verdict: print forged, options or nothing for an AskUserQuestion call about the git mode picker.
+picker_verdict() {
+  jq -r --arg m "$PICKER_MARKER" '
+    def filled: . != null and . != {} and . != [] and . != "";
+    [.tool_input.questions[]? | select(.question == $m)] as $p
+    | if ($p | length) == 0 then empty
+      elif (.tool_input.answers | filled) or (.tool_input.annotations | filled) then "forged"
+      elif ($p | any(([.options[]? | if type == "object" then .label else . end]) != ["locked", "ask", "auto"])) then "options"
+      else empty end' <<<"$INPUT" 2>/dev/null
+}
+
+# guard_picker: nobody but the user may answer the git mode picker, and its options are fixed.
+guard_picker() {
+  local verdict
+  input_has '"tool_name"[[:space:]]*:[[:space:]]*"AskUserQuestion"' || return 0
+  if command -v jq >/dev/null 2>&1; then
+    verdict=$(picker_verdict)
+  else
+    verdict=""
+    input_has "$PICKER_MARKER" && verdict=forged
+  fi
+  case "$verdict" in
+    forged) decide deny "Noctia: the git mode picker must be answered by the user." ;;
+    options) decide deny "Noctia: the git mode picker must offer exactly locked, ask and auto." ;;
+  esac
+  return 0
+}
+
 main() {
+  guard_picker
   guard_state_file
   guard_git_command
 }

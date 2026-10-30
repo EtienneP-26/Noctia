@@ -63,5 +63,21 @@ test_write_edit_mode_file_denied() {
 }
 test_write_other_file_allowed() { [ -z "$(write_decision Write "$PROJECT/src/a.txt")" ]; }
 
+# ask_decision EXTRA LABELS: decision for an AskUserQuestion call on the picker; EXTRA is merged into tool_input.
+ask_decision() {
+  jq -n --argjson x "$1" --argjson l "$2" '{tool_name: "AskUserQuestion", tool_input: ({questions: [{question: "Noctia: choose the git mode for this project", options: ($l | map({label: .}))}]} + $x)}' |
+    CLAUDE_PROJECT_DIR="$PROJECT" bash "$HOOK" | jq -r '.hookSpecificOutput.permissionDecision // empty'
+}
+
+test_picker_with_answers_denied() {
+  [ "$(ask_decision '{"answers": {"q": "auto"}}' '["locked","ask","auto"]')" = deny ] &&
+  [ "$(ask_decision '{"annotations": {"q": {"notes": "x"}}}' '["locked","ask","auto"]')" = deny ]
+}
+test_picker_with_wrong_options_denied() { [ "$(ask_decision '{}' '["locked","auto"]')" = deny ]; }
+test_picker_normal_allowed() { [ -z "$(ask_decision '{}' '["locked","ask","auto"]')" ]; }
+test_other_question_allowed() {
+  [ -z "$(echo '{"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Which db?"}],"answers":{"a":"b"}}}' | CLAUDE_PROJECT_DIR="$PROJECT" bash "$HOOK")" ]
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do check "$t" "$t"; done
 exit "$FAILED"
