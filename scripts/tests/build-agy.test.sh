@@ -74,6 +74,8 @@ test_build_is_deterministic() {
   bash "$BUILD" >/dev/null && cp -R "$AGY" "$COPY/first" && bash "$BUILD" >/dev/null && diff -r "$COPY/first" "$AGY" >/dev/null
 }
 
+test_no_old_plugin_path() { ! grep -rq 'antigravity-cli/plugins' "$AGY"; }
+
 bash "$BUILD" >/dev/null || { echo "FAIL build"; exit 1; }
 for t in $(declare -F | awk '$3 ~ /^test_/ {print $3}'); do check "$t" "$t"; done
 exit $FAILED

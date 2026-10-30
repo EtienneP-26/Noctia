@@ -13,7 +13,7 @@ Or `agy plugin install ./agy` from the clone. The GitHub URL form only works if 
 Change the git mode from your own terminal (the model cannot do it):
 
 ```bash
-bash ~/.gemini/antigravity-cli/plugins/noctia/hooks/scripts/set-git-mode.sh <locked|ask|auto>
+bash ~/.gemini/config/plugins/noctia/hooks/scripts/set-git-mode.sh <locked|ask|auto>
 ```
 
 ## Mapping from Claude Code
@@ -50,7 +50,7 @@ bash ~/.gemini/antigravity-cli/plugins/noctia/hooks/scripts/set-git-mode.sh <loc
 ## Known limits
 
 - Not tested on a real agy install yet.
-- `${PLUGIN_ROOT}` expansion in hooks is unconfirmed. The fallback path `$HOME/.gemini/antigravity-cli/plugins/noctia` is used.
+- `${PLUGIN_ROOT}` expansion in hooks is unconfirmed. The fallback path `$HOME/.gemini/config/plugins/noctia` is used.
 - Agents have no tool restriction.
 - It is unknown whether `force_ask` is honored in agy auto-approve mode.
 

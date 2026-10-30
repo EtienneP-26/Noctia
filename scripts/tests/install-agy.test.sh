@@ -21,8 +21,23 @@ fresh() {
   [ "$2" = - ] || printf '%s' "$2" > "$H/$S"
 }
 
-# run HOME ARGS...: run the installer with a fake HOME and no agy.
-run() { local h=$1; shift; HOME="$h" bash "$INSTALL" "$@" 2>&1 < /dev/null; }
+# fake_agy: make a bin dir with an agy that creates the plugin dir under $HOME.
+fake_agy() {
+  mkdir -p "$TMP/bin"
+  cat > "$TMP/bin/agy" <<'EOS'
+#!/usr/bin/env bash
+d="$HOME/.gemini/config/plugins/noctia/statusline"
+mkdir -p "$d" && : > "$d/noctia-status.sh"
+EOS
+  chmod +x "$TMP/bin/agy"
+}
+fake_agy
+
+# run HOME ARGS...: run the installer with a fake HOME and the fake agy first on PATH.
+run() { local h=$1; shift; HOME="$h" PATH="$TMP/bin:$PATH" bash "$INSTALL" "$@" 2>&1 < /dev/null; }
+
+# run_noagy HOME ARGS...: run the installer with a PATH that has no agy.
+run_noagy() { local h=$1; shift; HOME="$h" PATH="$(dirname "$(command -v jq)"):/usr/bin:/bin" bash "$INSTALL" "$@" 2>&1 < /dev/null; }
 
 test_yes_merges_and_backs_up() {
   fresh a '{"theme":"dark","statusLine":{"type":"old"}}'
@@ -51,7 +66,13 @@ test_no_answer_untouched() { fresh e '{"a":1}'; run "$H" >/dev/null; [ "$(cat "$
 
 test_agy_absent_prints_command() {
   fresh f -
-  run "$H" --no-statusline | grep -q "agy plugin install $ROOT/agy"
+  run_noagy "$H" --no-statusline | grep -q "agy plugin install $ROOT/agy"
+}
+
+test_agy_missing_settings_untouched() {
+  fresh g '{"a":1}'
+  run_noagy "$H" --yes | grep -q 'Status line not changed'
+  [ "$(cat "$H/$S")" = '{"a":1}' ]
 }
 
 for t in $(declare -F | awk '$3 ~ /^test_/ {print $3}'); do check "$t" "$t"; done

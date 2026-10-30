@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 YES=0
 STATUSLINE=1
-STATUS_CMD='bash "$HOME/.gemini/antigravity-cli/plugins/noctia/statusline/noctia-status.sh"'
+STATUS_CMD='bash "$HOME/.gemini/config/plugins/noctia/statusline/noctia-status.sh"'
 
 # install_plugin: run agy plugin install when agy exists, else print the command.
 install_plugin() {
@@ -16,6 +16,11 @@ install_plugin() {
     echo "agy not found. Run this once agy is installed:"
     echo "  agy plugin install $ROOT/agy"
   fi
+}
+
+# plugin_installed: succeed when the status line script exists in the agy plugin dir.
+plugin_installed() {
+  [ -f "$HOME/.gemini/config/plugins/noctia/statusline/noctia-status.sh" ]
 }
 
 # ask_statusline: succeed when the user wants the status line.
@@ -70,8 +75,10 @@ main() {
   parse_args "$@"
   bash "$ROOT/scripts/build-agy.sh"
   install_plugin
-  if [ "$STATUSLINE" = 1 ] && ask_statusline; then
-    enable_statusline
+  if [ "$STATUSLINE" = 1 ] && ! plugin_installed; then
+    echo "Plugin not found in ~/.gemini/config/plugins/noctia. Status line not changed."
+  elif [ "$STATUSLINE" = 1 ] && ask_statusline; then
+    enable_statusline || echo "Status line not enabled."
   else
     echo "Status line not changed."
   fi

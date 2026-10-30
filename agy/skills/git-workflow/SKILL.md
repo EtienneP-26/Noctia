@@ -11,7 +11,7 @@ Once unlocked:
 
 1. **Match the project.** Read CONTRIBUTING.md if it exists, otherwise `git log --oneline -20` (delegate to `reader` if the history is large). Follow its branch naming, commit message style and target branch. Default: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
 2. **Stage precisely.** `git add <specific files>`, never `git add -A` or `.` blindly. Check `git status` first so no secret, `.env`, build output or unrelated file goes in.
-3. **Co-author credit, ask once per project.** Look for `.noctia/coauthor`. If it exists, use its answer (`yes` or `no`) without asking. If not, ask once: "Do you want me to credit myself as co-author in this project's commits? I will remember your answer." Then save the answer by running `bash "${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/set-coauthor.sh" yes` (or `no`). On `no`, the script also adds `.noctia/` to `.git/info/exclude`, so the folder leaves no trace in the repo. If the answer is yes, end every commit message with these two lines:
+3. **Co-author credit, ask once per project.** Look for `.noctia/coauthor`. If it exists, use its answer (`yes` or `no`) without asking. If not, ask once: "Do you want me to credit myself as co-author in this project's commits? I will remember your answer." Then save the answer by running `bash "${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}/hooks/scripts/set-coauthor.sh" yes` (or `no`). On `no`, the script also adds `.noctia/` to `.git/info/exclude`, so the folder leaves no trace in the repo. If the answer is yes, end every commit message with these two lines:
 ```
    Co-Authored-By: Noctia <noctia@etienne-pouille.work>
    Co-Authored-By: Gemini <noreply@google.com>

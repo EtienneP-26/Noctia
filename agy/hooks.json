@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-git",
+            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-git",
             "timeout": 10
           }
         ]
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-secrets",
+            "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}/hooks/scripts/agy-hook.sh\" guard-secrets",
             "timeout": 10
           }
         ]
@@ -31,7 +31,7 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/agy-hook.sh\" session-start SessionStart",
+        "command": "bash \"${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}/hooks/scripts/agy-hook.sh\" session-start SessionStart",
         "timeout": 10
       }
     ]

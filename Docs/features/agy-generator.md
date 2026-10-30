@@ -9,7 +9,7 @@ Files:
 How it works:
 - Agents become agy agents. Opus and Sonnet map to the `pro` model, Haiku maps to `flash`. The `chief` agent is the `mainAgent`.
 - Skills become agy skills, so each one is a slash command (for example `/build` and `/git`). Rules become one always-on rule in `rules/core.md`.
-- The hooks are written in agy format and call `hooks/scripts/agy-hook.sh` (guard-git, guard-secrets, session-start). Text is adapted for agy: `/noctia:x` becomes `/x`, paths use `${PLUGIN_ROOT}` with the fallback `$HOME/.gemini/antigravity-cli/plugins/noctia`, and the co-author line is Gemini.
+- The hooks are written in agy format and call `hooks/scripts/agy-hook.sh` (guard-git, guard-secrets, session-start). Text is adapted for agy: `/noctia:x` becomes `/x`, paths use `${PLUGIN_ROOT}` with the fallback `$HOME/.gemini/config/plugins/noctia`, and the co-author line is Gemini.
 - `plugin.json` has three keys only: `$schema`, `name` and `description`. The output is deterministic.
 
 Use:

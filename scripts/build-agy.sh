@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/agy"
-AGY_ROOT='${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}'
+AGY_ROOT='${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}'
 
 # check_root: refuse to run outside the Noctia repo.
 check_root() {

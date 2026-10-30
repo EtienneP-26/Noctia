@@ -15,7 +15,7 @@ You may write the plan and the report. The code is written by `developer`, the t
 3. Check the git mode, from the project root (read-only):
 
 ```bash
-bash "${PLUGIN_ROOT:-$HOME/.gemini/antigravity-cli/plugins/noctia}/hooks/scripts/set-git-mode.sh" status
+bash "${PLUGIN_ROOT:-$HOME/.gemini/config/plugins/noctia}/hooks/scripts/set-git-mode.sh" status
 ```
 
 Never run that script with another argument, and never touch the mode file.

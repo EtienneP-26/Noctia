@@ -37,7 +37,7 @@ What works:
 To change the git mode in agy, run this in your own terminal, from your project root:
 
 ```bash
-bash ~/.gemini/antigravity-cli/plugins/noctia/hooks/scripts/set-git-mode.sh <locked|ask|auto>
+bash ~/.gemini/config/plugins/noctia/hooks/scripts/set-git-mode.sh <locked|ask|auto>
 ```
 
 What does not port: the Claude Code mods (panels, toasts) and the test output filtering.
