@@ -11,10 +11,12 @@ description: Noctia code style: KISS, small functions, docstrings, tests. Use wh
 3. **If the intent is unclear**, restate what you understood and ask for confirmation before coding.
 
 ## Shape of the code
+- **KISS, always.** Write the shortest, lightest code that works. No dead code, no abstraction "for later", no unused parameter or option, no speculative feature.
 - **Small blocks that connect.** Split by responsibility into modules, then functions. Prefer several small files or functions that call each other over one large block.
-- **One purpose per function.** Test: can you name it without "and"? A function orchestrates by calling others; it does not parse, validate, compute and save all at once. As a guide, over about 20 lines, look for a split. If it cannot be split, the design needs rethinking.
+- **One purpose per function.** Test: can you name it without "and"? A function orchestrates by calling others; it does not parse, validate, compute and save all at once. Aim under 20 lines. Over 20, split it. If it cannot be split, the design needs rethinking.
+- **Reuse before writing.** Use the existing function or library. Write new code only when nothing fits.
 - **Readable beats efficient.** Pick the clear version. Optimize only with a measurement, and say so.
-- **Names explain the code.** Use them instead of comments. Comment only the "why" of something non-obvious.
+- **Names explain the code.** Use them instead of comments. Comment only the "why" of something non-obvious. Few comments.
 
 ## Docstrings
 1. **The project wins.** If the code already has a docstring convention (or CONTRIBUTING.md / a linter config sets one), follow it, unless the user asks for the Noctia style.
