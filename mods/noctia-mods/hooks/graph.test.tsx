@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { GraphNode } from '../types'
-import { clock, columnsFor, connector, drawGraph, drawRows, finishedWaves, parseDesc, rows, sanitize, summary, tok } from './graph'
+import { capNodes, clock, columnsFor, connector, drawGraph, drawRows, finishedWaves, parseDesc, rows, sanitize, summary, tok } from './graph'
 
 const node = (o: Partial<GraphNode>): GraphNode => ({
   id: 'a', wave: 1, label: '', task: 't', model: 'm', status: 'done', startedAt: 0, endedAt: 1000, ...o,
@@ -128,5 +128,51 @@ describe('drawRows tones and trunk', () => {
     const text = drawGraph(wide, 120, 1000)
     expect(text.some(l => l.startsWith('└'))).toBe(true)
     expect(text.some(l => l.startsWith('┌'))).toBe(true)
+  })
+})
+
+describe('graph hardening', () => {
+  const mk = (o: Partial<GraphNode>) => node({ wave: 2, status: 'running', ...o })
+
+  test('emoji and CJK keep the box borders aligned', () => {
+    const lines = drawGraph([mk({ task: '日本語😀日本語😀日本語😀日本語😀日本語😀日本語😀日本語😀' })], 90, 1000)
+    const widths = lines.filter(l => l.includes('│ ') || l.includes('╭')).map(l => l.trimEnd())
+    expect(widths.every(l => !/[\ud800-\udfff]/.test(l.replace(/[\u{10000}-\u{10ffff}]/gu, '')))).toBe(true)
+    const rows = drawRows([mk({ task: '日本語😀日本語😀日本語😀日本語😀日本語😀日本語😀日本語😀' })], 90, 1000)
+    const body = rows.find(r => r.text.includes('日'))!
+    expect(Array.from(body.tone).length).toBe(Array.from(body.text).length)
+    expect(body.text.trimEnd().endsWith('│')).toBe(true)
+  })
+
+  test('sanitize strips bidi and zero-width characters', () => {
+    expect(sanitize('a\u202eb\u200bc\u2028d')).toBe('abcd')
+  })
+
+  test('bad token counts show as 0', () => {
+    expect(tok(NaN)).toBe('0')
+    expect(tok(-5)).toBe('0')
+    expect(tok(Infinity)).toBe('0')
+  })
+
+  test('self-parent, cycles and duplicates are drawn once', () => {
+    const text = drawGraph(
+      [mk({ id: 'a', parent: 'a' }), mk({ id: 'b', parent: 'c' }), mk({ id: 'c', parent: 'b' }), mk({ id: 'a', task: 'last' })],
+      90,
+      1000,
+    ).join('\n')
+    expect(text.match(/last/g)?.length).toBe(1)
+    expect(text.match(/▶ agent/g)?.length).toBe(3)
+  })
+
+  test('very deep chains still show every node', () => {
+    const chain = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((id, i, l) => mk({ id, parent: l[i - 1] }))
+    expect(drawGraph(chain, 120, 1000).join('\n').match(/▶ agent/g)?.length).toBe(7)
+  })
+
+  test('the cap drops finished nodes and keeps running ones', () => {
+    const list = [mk({ id: 'r' }), ...Array.from({ length: 5 }, (_, i) => mk({ id: `d${i}`, status: 'done' }))]
+    const out = capNodes(list, 3).map(n => n.id)
+    expect(out).toEqual(['r', 'd3', 'd4'])
+    expect(capNodes([mk({ id: 'x' }), mk({ id: 'y' })], 1).length).toBe(2)
   })
 })

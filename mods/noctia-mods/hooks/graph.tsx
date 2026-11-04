@@ -25,7 +25,7 @@ export const graphCommand = { name: 'graph', description: 'Show the live graph o
  */
 export const sanitize = (text: string): string =>
   // eslint-disable-next-line no-control-regex
-  text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/[\x00-\x1f\x7f-\x9f]/g, '')
+  text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/[\p{Cf}\p{Zl}\p{Zp}]/gu, '')
 
 /**
  * # Wave and task of a description
@@ -52,13 +52,19 @@ export const parseDesc = (description: string) => {
 export const clock = (s: number): string =>
   s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}`
 
+/** A usable count: non-finite or negative values become 0. */
+export const num = (n?: number): number => (Number.isFinite(n) && n! > 0 ? n! : 0)
+
 /**
  * # Short token count
  * ## Returns
  * `850`, `52k`; empty when unknown.
  */
-export const tok = (n?: number): string =>
-  n === undefined ? '' : n < 1000 ? `${n}` : `${Math.round(n / 1000)}k`
+export const tok = (n?: number): string => {
+  if (n === undefined) return ''
+  const v = num(n)
+  return v < 1000 ? `${v}` : `${Math.round(v / 1000)}k`
+}
 
 /** Boxes per row: 3 when the pane is wide, else 2. */
 export const columnsFor = (width: number): number => (width >= WIDE ? 3 : 2)
@@ -88,7 +94,7 @@ const elapsed = (n: GraphNode, now: number): number =>
 
 const sum = (nodes: GraphNode[]): number | undefined =>
   nodes.some(n => n.tokens !== undefined)
-    ? nodes.reduce((a, n) => a + (n.tokens ?? 0), 0)
+    ? nodes.reduce((a, n) => a + num(n.tokens), 0)
     : undefined
 
 /**
@@ -145,22 +151,65 @@ const STATUS_TONE = { running: 'r', done: 'd', error: 'e' } as const
 const kids = (nodes: GraphNode[], parent?: string): GraphNode[] =>
   nodes.filter(n => n.parent === parent)
 
-const paint = (lines: string[], tone: string): Row[] =>
-  lines.map(text => ({ text, tone: tone.repeat(text.length) }))
+const WIDE_RANGES = [
+  [0x1100, 0x115f], [0x2e80, 0xa4cf], [0xac00, 0xd7a3], [0xf900, 0xfaff], [0xfe30, 0xfe6f],
+  [0xff00, 0xff60], [0xffe0, 0xffe6], [0x1f300, 0x1faff], [0x20000, 0x3fffd],
+]
 
-const padRow = (r: Row, w: number): Row => ({
-  text: r.text.padEnd(w),
-  tone: r.tone.padEnd(w, 'm'),
-})
+/** Display width of one character: 0 for marks, 2 for wide and emoji, else 1. */
+const cw = (ch: string): number => {
+  if (/[\p{M}\p{Cf}]/u.test(ch)) return 0
+  const c = ch.codePointAt(0)!
+  return WIDE_RANGES.some(([a, b]) => c >= a! && c <= b!) ? 2 : 1
+}
+
+const cells = (text: string): number => Array.from(text).reduce((a, c) => a + cw(c), 0)
+
+/** Index (in code points) of the character that covers column `col`, or -1. */
+const cellIndex = (chars: string[], col: number): number => {
+  let a = 0
+  return chars.findIndex(c => (a += cw(c)) > col)
+}
+
+const cellAt = (text: string, col: number): string => {
+  const chars = Array.from(text)
+  return chars[cellIndex(chars, col)] ?? ' '
+}
+
+// the tone string holds one letter per code point of the text
+const paint = (lines: string[], tone: string): Row[] =>
+  lines.map(text => ({ text, tone: tone.repeat(Array.from(text).length) }))
+
+const padRow = (r: Row, w: number): Row => {
+  const n = Math.max(0, w - cells(r.text))
+  return { text: r.text + ' '.repeat(n), tone: r.tone + 'm'.repeat(n) }
+}
 
 /** Replaces the character at column `i` of a row, padding it if it is shorter. */
 const setAt = (r: Row, i: number, ch: string): Row => {
   const { text, tone } = padRow(r, i + 1)
-  return { text: text.slice(0, i) + ch + text.slice(i + 1), tone: `${tone.slice(0, i)}m${tone.slice(i + 1)}` }
+  const chars = Array.from(text)
+  const k = cellIndex(chars, i)
+  const pad = ' '.repeat(cw(chars[k]!) - 1)
+  chars[k] = ch + pad
+  const tones = Array.from(tone)
+  tones[k] = 'm'.repeat(1 + pad.length)
+  return { text: chars.join(''), tone: tones.join('') }
 }
 
-const fit = (text: string, size: number): string =>
-  (text.length > size ? `${text.slice(0, size - 1)}…` : text).padEnd(size)
+/** Cuts or pads to exactly `size` cells; zero-width marks are dropped. */
+const fit = (text: string, size: number): string => {
+  const chars = Array.from(text).filter(c => cw(c) > 0)
+  const long = cells(chars.join('')) > size
+  let out = ''
+  let w = 0
+  for (const c of chars) {
+    if (w + cw(c) > (long ? size - 1 : size)) break
+    out += c
+    w += cw(c)
+  }
+  return out + (long ? '…' : '') + ' '.repeat(size - w - (long ? 1 : 0))
+}
 
 /** A rounded box of `width` cells; `top`/`bottom` put a join mark on the border's axis. */
 const frame = (inner: string[], width: number, top: boolean, bottom: boolean): string[] => {
@@ -219,7 +268,7 @@ const group = (nodes: GraphNode[], parent: string | undefined, width: number, co
   const blocks = rows(kids(nodes, parent), cols).map(line => block(nodes, line, width, cols, now, depth))
   const axis = width / 2
   const trunk = depth === 0 ? blocks.length - 1 : 0
-  const gap = blocks.slice(0, trunk).every(b => b.box.every(r => (r.text[axis] ?? ' ') === ' '))
+  const gap = blocks.slice(0, trunk).every(b => b.box.every(r => cellAt(r.text, axis) === ' '))
   const edge = gap ? axis : 0
   return blocks.flatMap((b, k) => {
     const more = k < trunk
@@ -236,6 +285,23 @@ const group = (nodes: GraphNode[], parent: string | undefined, width: number, co
 }
 
 /**
+ * # Clean tree
+ * Dedupes by id (last wins), sends self or cyclic parents to the chief, and
+ * hangs nodes deeper than 4 from their depth 3 ancestor.
+ */
+const normalize = (list: GraphNode[]): GraphNode[] => {
+  const byId = new Map(list.map(n => [n.id, n]))
+  return [...byId.values()].map(n => {
+    const path = [n.id]
+    for (let p = n.parent; p && byId.has(p); p = byId.get(p)!.parent) {
+      if (path.includes(p)) return { ...n, parent: undefined }
+      path.push(p)
+    }
+    return path.length > 5 ? { ...n, parent: path[path.length - 4] } : n
+  })
+}
+
+/**
  * # Drawing of the graph with tones
  * ## Args
  * - state: every agent node
@@ -244,7 +310,8 @@ const group = (nodes: GraphNode[], parent: string | undefined, width: number, co
  * ## Returns
  * Rows of text with a tone letter per character: header, chief, linked boxes, collapsed waves.
  */
-export const drawRows = (state: GraphNode[], width: number, now = Date.now()): Row[] => {
+export const drawRows = (raw: GraphNode[], width: number, now = Date.now()): Row[] => {
+  const state = normalize(raw)
   const cols = columnsFor(width)
   const w = 2 * Math.floor(width / cols / 2)
   const done = finishedWaves(state)
@@ -290,6 +357,21 @@ export const spans = (r: Row): { text: string; tone: string }[] =>
     return out
   }, [])
 
+/** Keeps the last 60 nodes at most, dropping the oldest finished ones first; never a running one. */
+export const capNodes = (list: GraphNode[], max = 60): GraphNode[] => {
+  let over = list.length - max
+  return list.filter(n => !(over > 0 && n.status !== 'running' && over--))
+}
+
+/** Runs a state update; a failure is ignored. */
+const safely = async (job: () => unknown): Promise<void> => {
+  try {
+    await job()
+  } catch {
+    // the hook chain must go on
+  }
+}
+
 /**
  * # Graph panel
  * Live boxes of the agents, linked to the agent that launched them.
@@ -317,21 +399,23 @@ export const registerGraph: Register = on => {
       status: 'running',
       startedAt: Date.now(),
     }
-    await update($, graph, list => [...list, node].slice(-60))
-    void $.ui.open({ id: PANE, title: 'Noctia graph', columns: 90 })
+    await safely(() => update($, graph, list => capNodes([...list, node])))
+    void safely(() => $.ui.open({ id: PANE, title: 'Noctia graph', columns: 90 }))
     return result
   })
 
   on('turn.complete', { agentId: /./ }, async ($, e, next) => {
     const id = e.agentId
     if (id) {
-      const used = e.usage ? e.usage.input_tokens + e.usage.output_tokens : undefined
+      const used = e.usage ? num(e.usage.input_tokens) + num(e.usage.output_tokens) : undefined
       const status = e.reason === 'error' || e.reason === 'refusal' ? 'error' : 'done'
-      await update($, graph, list =>
-        list.map(n =>
-          n.id === id
-            ? { ...n, status, endedAt: Date.now(), tokens: used === undefined ? n.tokens : (n.tokens ?? 0) + used }
-            : n,
+      await safely(() =>
+        update($, graph, list =>
+          list.map(n =>
+            n.id === id
+              ? { ...n, status, endedAt: Date.now(), tokens: used === undefined ? n.tokens : num(n.tokens) + used }
+              : n,
+          ),
         ),
       )
     }
