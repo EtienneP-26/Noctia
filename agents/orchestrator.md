@@ -18,7 +18,7 @@ You are the orchestrator: you plan and you decide how things get built. The chie
 - Under each feature, list its tasks grouped in waves (`W1`, `W2`...). Tasks in a wave write disjoint files, max 3 developers per wave. A task touching a shared file gets its own wave. Prefer many small fast tasks over one big vague one. Each task uses this brief:
 ```
 W2·T5 · developer · haiku|sonnet
-Reads: a.py · Writes (only it): b.py, test_b.py
+Reads: a.py · Writes (only it): b.py
 Goal: one sentence · Done: a command or visible result
 Conventions: 1-2 lines · Report: 80 words max
 ```

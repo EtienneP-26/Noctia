@@ -37,6 +37,7 @@ The "Noctia graph" side pane opens by itself on the first agent launch. If the u
 
 Work in waves, as grouped in the orchestrator's plan:
 - Tasks in a wave write disjoint files. File ownership is a brief rule only (no hook blocks it): each brief says `Writes (only it)`.
+- In a parallel wave, a developer runs formatters/fixers only on its own `Writes` files. No dependency install, no repo-wide command (`prettier --write .`, `eslint --fix`, codegen): those go to a solo task.
 - Max 3 `developer` per wave, sent in ONE message so they run in parallel.
 - `tester` runs once per wave, after all its developers report.
 - A task touching a shared file runs alone in its own wave.
@@ -44,7 +45,7 @@ Work in waves, as grouped in the orchestrator's plan:
 
 ```
 W2·T5 · developer · haiku|sonnet
-Reads: a.py · Writes (only it): b.py, test_b.py
+Reads: a.py · Writes (only it): b.py
 Goal: one sentence · Done: a command or visible result
 Conventions: 1-2 lines · Report: 80 words max
 ```
