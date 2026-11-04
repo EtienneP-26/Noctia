@@ -1,6 +1,7 @@
 import type { Register } from 'claude-code'
 
 import { registerCost } from './cost'
+import { graphCommand, registerGraph } from './graph'
 import { registerGuards } from './guards'
 import { registerLabels } from './labels'
 import { mentorTool, registerMentor } from './mentor'
@@ -12,6 +13,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register(teamCommand)
     await $.command.register(noctiaCommand)
+    await $.command.register(graphCommand)
     await $.tool.register(mentorTool)
     await refresh($)
     return next(e)
@@ -19,6 +21,7 @@ export const register: Register = (on, options) => {
 
   registerNoctia(on, options)
   registerTeam(on, options)
+  registerGraph(on, options)
   registerLabels(on, options)
   registerTasks(on, options)
   registerGuards(on, options)

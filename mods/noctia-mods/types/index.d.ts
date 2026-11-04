@@ -7,6 +7,20 @@ export type AgentRun = {
   endedAt?: number
 }
 
+export type GraphNode = {
+  id: string
+  parent?: string
+  type?: string
+  wave: number
+  label: string
+  task: string
+  model: string
+  status: 'running' | 'done' | 'error'
+  startedAt: number
+  endedAt?: number
+  tokens?: number
+}
+
 export type Todo = {
   content: string
   status: 'pending' | 'in_progress' | 'completed'
@@ -30,6 +44,7 @@ declare module 'claude-code' {
   interface PluginState {
     'noctia-mods': {
       agents: AgentRun[]
+      graph: GraphNode[]
       todos: Todo[]
       mentor: MentorState
       noctia: NoctiaState
