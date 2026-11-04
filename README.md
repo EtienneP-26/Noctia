@@ -84,6 +84,12 @@ Noctia turns the session into a small team. The main agent is the `chief` (Opus)
 
 The plugin's `settings.json` makes `noctia:chief` the main agent of every session. It replaces the default Claude Code system prompt, and it runs on Opus. To turn this off, set `"agent"` to another agent in your own settings, or run `claude --agent <name>`.
 
+### Build waves and KISS
+
+`/noctia:build` runs developers in waves. At most 3 developers work in parallel, each on separate files. Each brief is labelled `W<wave>·T<task>`, so you can see which task belongs to which wave.
+
+The KISS rules are strict: the shortest code that works, no dead code, no abstraction "for later", no unused option. Existing functions and libraries are reused, and a new dependency needs your approval.
+
 ## What does what
 
 | File | Role |
@@ -130,6 +136,11 @@ The plugin's `settings.json` makes `noctia:chief` the main agent of every sessio
 | Visible guards | A toast when a Noctia guard blocks or questions a command (locked git, hard-coded secret), with the reason. | v0.3.5 |
 | Mentor panel | In mentor mode, a side panel with the steps (done, doing, to do) and a gauge of the hints used. | v0.3.6 |
 | Cost and context | The Noctia banner shows the model, a context gauge (green, yellow at 60%, red at 80%) and the session cost. A toast warns at 80% of the context. | v0.3.7 |
+| Agent graph | A side pane with the live agents as a node graph. Each node shows state, type, wave·task, model and time; tokens appear when the agent finishes. Opens on the first agent launch or with `/graph`. | v0.6.0 |
+
+### Noctia graph
+
+The graph docks next to the chat in fullscreen mode and takes at most 45% of the width. It updates live while agents run. Each node shows the agent's state, type, `W<wave>·T<task>`, model and time. Tokens are shown once the agent finishes.
 
 ## Mentor mode
 
@@ -141,7 +152,8 @@ Git write commands are locked by default. You unlock them per project:
 
 - `/noctia:git locked`: default, nothing allowed.
 - `/noctia:git ask`: allowed, but you approve every command in a prompt.
-- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing.- `/noctia:git status`: show the current mode.
+- `/noctia:git auto`: allowed without a prompt, for full-auto projects. Claude still asks before pushing.
+- `/noctia:git status`: show the current mode.
 
 The mode is stored in `.noctia/git-mode` inside the project, which is git-ignored automatically.
 
