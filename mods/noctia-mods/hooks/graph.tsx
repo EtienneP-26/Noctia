@@ -117,7 +117,7 @@ export const summary = (wave: number, all: GraphNode[], now: number): string => 
 export const connector = (count: number, width: number, cols: number): string[] => {
   const w = Math.floor(width / cols)
   const off = Math.floor(((cols - count) * w) / 2)
-  const centers = Array.from({ length: count }, (_, i) => off + i * w + Math.floor(w / 2))
+  const centers = Array.from({ length: count }, (_, i) => off + i * (w + 1) + Math.floor(w / 2))
   const first = centers[0]!
   const last = centers[count - 1]!
   const mid = Math.floor((first + last) / 2)
@@ -186,12 +186,12 @@ const join = (cells: Row[][], w: number, off: number): Row[] =>
   Array.from({ length: Math.max(...cells.map(c => c.length)) }, (_, i) => {
     const parts = cells.map(c => padRow(c[i] ?? { text: '', tone: '' }, w))
     return {
-      text: ' '.repeat(off) + parts.map(p => p.text).join(''),
-      tone: 'm'.repeat(off) + parts.map(p => p.tone).join(''),
+      text: ' '.repeat(off) + parts.map(p => p.text).join(' '),
+      tone: 'm'.repeat(off) + parts.map(p => p.tone).join('m'),
     }
   })
 
-/** One row of boxes with the connector lines above it. */
+/** One row of boxes (3 columns apart, trunk in the middle) with the connector lines above it. */
 const block = (nodes: GraphNode[], line: GraphNode[], width: number, cols: number, now: number, depth: number) => {
   const w = Math.floor(width / cols)
   const cells = line.map(n => {
