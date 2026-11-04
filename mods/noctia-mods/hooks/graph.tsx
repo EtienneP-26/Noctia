@@ -100,7 +100,7 @@ export const summary = (wave: number, all: GraphNode[], now: number): string => 
   const nodes = all.filter(n => n.wave === wave)
   const span = Math.max(...nodes.map(n => n.endedAt ?? now)) - Math.min(...nodes.map(n => n.startedAt))
   const t = tok(sum(nodes))
-  return `✔ W${wave} · ${nodes.length} agents · ${clock(Math.round(span / 1000))}${t ? ` · ${t} tok` : ''}`
+  return `✔ W${wave} · ${nodes.length} agent${nodes.length > 1 ? 's' : ''} · ${clock(Math.round(span / 1000))}${t ? ` · ${t} tok` : ''}`
 }
 
 /**
@@ -134,8 +134,30 @@ export const connector = (count: number, width: number, cols: number): string[] 
 const count = (nodes: GraphNode[], status: GraphNode['status']): number =>
   nodes.filter(n => n.status === status).length
 
+/** One line of the drawing: its text and, per character, a tone letter (r d e m a or space). */
+export type Row = { text: string; tone: string }
+
+const TONE: Record<string, string> = {
+  r: COLOR.running, d: COLOR.done, e: COLOR.error, m: PALETTE.muted, a: PALETTE.accent,
+}
+const STATUS_TONE = { running: 'r', done: 'd', error: 'e' } as const
+
 const kids = (nodes: GraphNode[], parent?: string): GraphNode[] =>
   nodes.filter(n => n.parent === parent)
+
+const paint = (lines: string[], tone: string): Row[] =>
+  lines.map(text => ({ text, tone: tone.repeat(text.length) }))
+
+const padRow = (r: Row, w: number): Row => ({
+  text: r.text.padEnd(w),
+  tone: r.tone.padEnd(w, 'm'),
+})
+
+/** Replaces the character at column `i` of a row, padding it if it is shorter. */
+const setAt = (r: Row, i: number, ch: string): Row => {
+  const { text, tone } = padRow(r, i + 1)
+  return { text: text.slice(0, i) + ch + text.slice(i + 1), tone: `${tone.slice(0, i)}m${tone.slice(i + 1)}` }
+}
 
 const fit = (text: string, size: number): string =>
   (text.length > size ? `${text.slice(0, size - 1)}…` : text).padEnd(size)
@@ -160,33 +182,69 @@ const boxText = (n: GraphNode, now: number): string[] => [
   `${n.model} · ${clock(elapsed(n, now))}${n.tokens === undefined ? '' : ` · ${tok(n.tokens)} tok`}`,
 ]
 
-const join = (cells: string[][], w: number, off: number): string[] =>
-  Array.from({ length: Math.max(...cells.map(c => c.length)) }, (_, i) =>
-    ' '.repeat(off) + cells.map(c => (c[i] ?? '').padEnd(w)).join(''),
-  )
+const join = (cells: Row[][], w: number, off: number): Row[] =>
+  Array.from({ length: Math.max(...cells.map(c => c.length)) }, (_, i) => {
+    const parts = cells.map(c => padRow(c[i] ?? { text: '', tone: '' }, w))
+    return {
+      text: ' '.repeat(off) + parts.map(p => p.text).join(''),
+      tone: 'm'.repeat(off) + parts.map(p => p.tone).join(''),
+    }
+  })
 
-/** Lines of the children of `parent`: connectors, boxes, then their own children below. */
-const group = (nodes: GraphNode[], parent: string | undefined, width: number, cols: number, now: number, depth = 0): string[] => {
+/** One row of boxes with the connector lines above it. */
+const block = (nodes: GraphNode[], line: GraphNode[], width: number, cols: number, now: number, depth: number) => {
   const w = Math.floor(width / cols)
-  return rows(kids(nodes, parent), cols).flatMap(line => {
-    const cells = line.map(n => {
-      const sub = depth < 4 ? group(nodes, n.id, w, 1, now, depth + 1) : []
-      return [...frame(boxText(n, now), w - 2, true, sub.length > 0).map(l => ` ${l} `), ...sub]
-    })
-    return [...connector(line.length, width, cols), ...join(cells, w, ((cols - line.length) * w) / 2)]
+  const cells = line.map(n => {
+    const sub = depth < 4 ? group(nodes, n.id, w, 1, now, depth + 1) : []
+    return [
+      ...paint(frame(boxText(n, now), w - 2, true, sub.length > 0), STATUS_TONE[n.status]).map(r => ({
+        text: ` ${r.text} `,
+        tone: ` ${r.tone} `,
+      })),
+      ...sub,
+    ]
+  })
+  return {
+    conn: paint(connector(line.length, width, cols), 'm'),
+    box: join(cells, w, ((cols - line.length) * w) / 2),
+  }
+}
+
+/**
+ * Lines of the children of `parent`: connectors, boxes, their own children below.
+ * At the top level the chief's trunk runs down the gap of every row but the last
+ * (or down the left edge when a box covers the axis).
+ */
+const group = (nodes: GraphNode[], parent: string | undefined, width: number, cols: number, now: number, depth = 0): Row[] => {
+  const blocks = rows(kids(nodes, parent), cols).map(line => block(nodes, line, width, cols, now, depth))
+  const axis = width / 2
+  const trunk = depth === 0 ? blocks.length - 1 : 0
+  const gap = blocks.slice(0, trunk).every(b => b.box.every(r => (r.text[axis] ?? ' ') === ' '))
+  const edge = gap ? axis : 0
+  return blocks.flatMap((b, k) => {
+    const more = k < trunk
+    const stem = b.conn[0]!
+    const mid = stem.text.indexOf('│')
+    const conn = b.conn.map(r => (more ? { ...r, text: r.text.replace('┴', '┼') } : r))
+    if (!gap && trunk > 0) {
+      const lead = k === 0 ? '┌' : more ? '├' : '└'
+      const tail = k === 0 ? '┤' : '┐'
+      conn[0] = paint([lead + '─'.repeat(mid - 1) + tail], 'm')[0]!
+    }
+    return [...conn, ...b.box.map(r => (more ? setAt(r, edge, '│') : r))]
   })
 }
 
 /**
- * # Full text of the graph
+ * # Drawing of the graph with tones
  * ## Args
  * - state: every agent node
  * - width: cells available (boxes per row follow it)
  * - now: current time in ms
  * ## Returns
- * The lines the pane shows: header, chief box, linked agent boxes, collapsed waves.
+ * Rows of text with a tone letter per character: header, chief, linked boxes, collapsed waves.
  */
-export const drawGraph = (state: GraphNode[], width: number, now = Date.now()): string[] => {
+export const drawRows = (state: GraphNode[], width: number, now = Date.now()): Row[] => {
   const cols = columnsFor(width)
   const w = 2 * Math.floor(width / cols / 2)
   const done = finishedWaves(state)
@@ -200,13 +258,37 @@ export const drawGraph = (state: GraphNode[], width: number, now = Date.now()): 
     : 0
   const t = tok(sum(state))
   const header = `☾ GRAPH  ${clock(span)}${t ? ` · ${t} tok` : ''}  ▶ ${count(state, 'running')}  ✔ ${count(state, 'done')}  ✘ ${count(state, 'error')}`
-  const chief = frame(['☾ chief'], 14, false, live.length > 0).map(l => ' '.repeat((cols * w) / 2 - 7) + l)
-  const body = live.length ? group(live, undefined, cols * w, cols, now) : ['No agent yet.']
-  return [header, ...chief, ...body, ...done.map(v => summary(v, state, now))].map(l => l.trimEnd())
+  const pad = ' '.repeat((cols * w) / 2 - 7)
+  const chief = paint(frame(['☾ chief'], 14, false, live.length > 0), 'a').map(r => ({
+    text: pad + r.text,
+    tone: 'm'.repeat(pad.length) + r.tone,
+  }))
+  const body = live.length ? group(live, undefined, cols * w, cols, now) : paint(['No agent yet.'], 'm')
+  return [
+    ...paint([header], 'a'),
+    ...chief,
+    ...body,
+    ...paint(done.map(v => summary(v, state, now)), 'd'),
+  ]
 }
 
-const ICONS = /([▶✔✘])/
-const TONE: Record<string, string> = { '▶': COLOR.running, '✔': PALETTE.ok, '✘': COLOR.error }
+/**
+ * # Full text of the graph
+ * ## Returns
+ * The lines the pane shows (see `drawRows`), without tones or trailing spaces.
+ */
+export const drawGraph = (state: GraphNode[], width: number, now = Date.now()): string[] =>
+  drawRows(state, width, now).map(r => r.text.trimEnd())
+
+/** Splits a row into runs of one tone, ready for Text spans. */
+export const spans = (r: Row): { text: string; tone: string }[] =>
+  [...r.text.trimEnd()].reduce<{ text: string; tone: string }[]>((out, ch, i) => {
+    const tone = r.tone[i] ?? 'm'
+    const last = out[out.length - 1]
+    if (last && last.tone === tone) last.text += ch
+    else out.push({ text: ch, tone })
+    return out
+  }, [])
 
 /**
  * # Graph panel
@@ -259,13 +341,13 @@ export const registerGraph: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(40, e.props?.bodyColumns ?? e.viewport?.columns ?? 60)
-    const lines = drawGraph(await read($, graph), width)
+    const lines = drawRows(await read($, graph), width)
     return (
       <Box flexDirection="column">
         {lines.map((line, i) => (
-          <Text key={i} wrap="truncate-end" color={/^✔ W\d+ ·/.test(line) ? COLOR.done : PALETTE.muted}>
-            {line.split(ICONS).map((part, j) => (
-              <Text key={j} color={TONE[part]}>{part}</Text>
+          <Text key={i} wrap="truncate-end">
+            {spans(line).map((part, j) => (
+              <Text key={j} color={TONE[part.tone]}>{part.text}</Text>
             ))}
           </Text>
         ))}

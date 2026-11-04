@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { GraphNode } from '../types'
-import { clock, columnsFor, connector, drawGraph, finishedWaves, parseDesc, rows, sanitize, summary, tok } from './graph'
+import { clock, columnsFor, connector, drawGraph, drawRows, finishedWaves, parseDesc, rows, sanitize, summary, tok } from './graph'
 
 const node = (o: Partial<GraphNode>): GraphNode => ({
   id: 'a', wave: 1, label: '', task: 't', model: 'm', status: 'done', startedAt: 0, endedAt: 1000, ...o,
@@ -73,7 +73,7 @@ describe('graph pane', () => {
       props: { title: 'Noctia graph', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 20 }, view: {} },
     })
     expect((await ui.find({ type: 'Text', text: /chief/ }))?.text).toContain('chief')
-    expect((await ui.find({ type: 'Text', text: /W1 · 1 agents/ }))?.text).toContain('✔ W1')
+    expect((await ui.find({ type: 'Text', text: /W1 · 1 agent/ }))?.text).toContain('✔ W1')
     await ui.unmount()
   })
 })
@@ -93,19 +93,40 @@ describe('drawGraph', () => {
       '                                     │ ☾ chief    │',
       '                                     ╰──────┬─────╯',
       '                                            │',
-      '                      ┌─────────────────────┴─────────────────────┐',
-      ' ╭────────────────────┴───────────────────╮  ╭────────────────────┴───────────────────╮',
-      ' │ ▶ developer · W2·T1                    │  │ ▶ tester · W2·T2                       │',
-      ' │ config parser                          │  │ tests                                  │',
-      ' │ opus · 30s                             │  │ opus · 30s · 800 tok                   │',
-      ' ╰────────────────────────────────────────╯  ╰────────────────────────────────────────╯',
+      '                      ┌─────────────────────┼─────────────────────┐',
+      ' ╭────────────────────┴───────────────────╮ │╭────────────────────┴───────────────────╮',
+      ' │ ▶ developer · W2·T1                    │ ││ ▶ tester · W2·T2                       │',
+      ' │ config parser                          │ ││ tests                                  │',
+      ' │ opus · 30s                             │ ││ opus · 30s · 800 tok                   │',
+      ' ╰────────────────────────────────────────╯ │╰────────────────────────────────────────╯',
       '                                            │',
       '                       ╭────────────────────┴───────────────────╮',
       '                       │ ✔ developer · W2·T3                    │',
       '                       │ done task                              │',
       '                       │ opus · 20s                             │',
       '                       ╰────────────────────────────────────────╯',
-      '✔ W1 · 1 agents · 3m40 · 52k tok',
+      '✔ W1 · 1 agent · 3m40 · 52k tok',
     ])
+  })
+})
+
+describe('drawRows tones and trunk', () => {
+  const base = { model: 'm', task: 't', startedAt: 0, wave: 2, label: '' }
+  const mk = (id: string, status: GraphNode['status']): GraphNode => ({ ...base, id, status })
+
+  test('a box is toned by its status', () => {
+    const lines = drawRows([mk('a', 'running'), mk('b', 'error')], 90, 1000)
+    const box = lines.find(r => r.text.includes('▶ agent'))!
+    expect(box.tone[box.text.indexOf('▶')]).toBe('r')
+    expect(box.tone[box.text.indexOf('│')]).toBe('r')
+    const bad = lines.find(r => r.text.includes('✘ agent'))!
+    expect(bad.tone[bad.text.indexOf('✘')]).toBe('e')
+  })
+
+  test('with a box on the axis the trunk runs down the left edge', () => {
+    const wide = ['a', 'b', 'c', 'd'].map(id => mk(id, 'running'))
+    const text = drawGraph(wide, 120, 1000)
+    expect(text.some(l => l.startsWith('└'))).toBe(true)
+    expect(text.some(l => l.startsWith('┌'))).toBe(true)
   })
 })
