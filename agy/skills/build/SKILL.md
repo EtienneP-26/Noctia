@@ -33,8 +33,26 @@ Keep the feature list up to date with the task list.
 
 ## 3. Dev loop, one feature at a time
 
+The "Noctia graph" side pane opens by itself on the first agent launch. If the user does not see it, tell them to type `/graph`.
+
+Work in waves, as grouped in the orchestrator's plan:
+- Tasks in a wave write disjoint files. File ownership is a brief rule only (no hook blocks it): each brief says `Writes (only it)`.
+- Max 3 `developer` per wave, sent in ONE message so they run in parallel.
+- `tester` runs once per wave, after all its developers report.
+- A task touching a shared file runs alone in its own wave.
+- Every brief uses this format, and the Agent `description` starts with `W<wave>·T<task> ` (middle dot), e.g. `W2·T5 config parser`:
+
+```
+W2·T5 · developer · haiku|sonnet
+Reads: a.py · Writes (only it): b.py, test_b.py
+Goal: one sentence · Done: a command or visible result
+Conventions: 1-2 lines · Report: 80 words max
+```
+
+Limit per task: 3 files written, ~150 lines, one goal; bigger = split. Prefer many small fast tasks over one big vague one.
+
 For each feature, in order:
-1. `developer` implements it.
+1. `developer` tasks implement it, wave by wave.
 2. `tester` launches the project the normal way, uses the feature, writes and runs its tests. It does not hunt for bugs beyond its feature: the pentester comes later.
 3. Failure: send it back to `developer`, then to `tester` again. Maximum 2 rounds, then note the feature as unresolved and move on.
 4. Works: `documenter` writes the doc of the feature (`short`, or `full` if the user asked). Show the user its summary.
@@ -57,6 +75,7 @@ Each subagent starts from zero and bills its own tokens. In every delegation pro
 - Name the exact files to read or create, the task, the "done" check, and the few project conventions that matter (language, test framework, style). The subagent must not explore.
 - Give `tester` and `documenter` the list of files `developer` reported.
 - Never paste file contents or long outputs into a prompt. Paths are enough.
+- Model per task: `haiku` for small or mechanical work, `sonnet` for non-trivial code, `opus` only for planning and pentest. Never re-read a file. Keep injected context stable (prompt cache).
 - Ask for the short report format of the agent, nothing more.
 - Run the full test suite with filtered output (failures and summary line only).
 

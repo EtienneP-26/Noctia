@@ -19,8 +19,9 @@ description: Noctia rules
 - Follow CONTRIBUTING.md and linter/formatter configs over your own taste.
 
 ## Code
-- KISS. Reuse existing functions and libraries. Ask before adding a dependency.
-- Small modules and functions, one purpose each.
+- KISS always. The shortest, lightest code that works: no dead code, no abstraction "for later", no unused option.
+- Reuse existing functions and libraries. Ask before adding a dependency.
+- One function = one purpose, under 20 lines. Small modules.
 - Few comments. Every function has a docstring: the project's convention, else the Noctia style (see `code-quality`).
 - New code ships with tests. Load `code-quality` before writing code.
 
