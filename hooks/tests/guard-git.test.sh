@@ -55,6 +55,17 @@ test_redirect_into_mode_file_denied() {
   [ "$(bash_decision 'cd .noctia && echo auto > git-mode')" = deny ] &&
   [ "$(bash_decision 'printf auto | tee git-mode')" = deny ]
 }
+test_git_on_mode_scripts_allowed() {
+  set_mode auto
+  [ -z "$(bash_decision 'git add hooks/scripts/git-mode-from-prompt.sh')" ] &&
+  [ -z "$(bash_decision 'git diff HEAD -- hooks/scripts/set-git-mode.sh')" ] &&
+  [ -z "$(bash_decision 'bash scripts/build-agy.sh')" ]
+}
+test_sed_rm_mode_file_denied() {
+  set_mode locked
+  [ "$(bash_decision "sed -i s/locked/auto/ $MODE_FILE")" = deny ] &&
+  [ "$(bash_decision "rm $MODE_FILE")" = deny ]
+}
 test_cat_mode_file_allowed() { set_mode locked; [ -z "$(bash_decision "cat $MODE_FILE")" ]; }
 test_write_edit_mode_file_denied() {
   set_mode locked

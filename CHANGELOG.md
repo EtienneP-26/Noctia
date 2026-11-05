@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.3] - 2026-11-05
+
+### Fixed
+- Git guard: `git add`, `git diff` or a commit naming the git mode scripts is no longer blocked. Writing the mode file or running the mode script with a mode is still denied.
+
 ## [0.6.2] - 2026-11-05
 
 ### Changed

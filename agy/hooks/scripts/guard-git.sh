@@ -49,9 +49,9 @@ unlock_script_call() {
   return 1
 }
 
-# mentions_mode_file: succeed if the command names git-mode (set-git-mode.sh itself does not count).
+# mentions_mode_file: succeed if the command names the git-mode file itself (git-mode-from-*.sh and set-git-mode.sh do not count).
 mentions_mode_file() {
-  sed 's/set-git-mode\.sh//g' <<<"$INPUT" | grep -q 'git-mode'
+  grep -qE '(^|[^[:alnum:]_-])git-mode([^[:alnum:]_.-]|$)' <<<"$INPUT"
 }
 
 # read_only_command: succeed if the command is a plain read (cat, head, tail, grep, ls, wc) with no shell tricks.
