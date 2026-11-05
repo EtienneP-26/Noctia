@@ -12,9 +12,10 @@ A plugin for Claude Code and Antigravity CLI (agy) that makes the AI develop lik
 then
 ```bash
 /plugin install noctia@noctia-plugins
+/plugin install noctia-mods@noctia-plugins
 ```
 
-Then inside Claude Code, run `/help` and look for the `noctia:` skills.
+`noctia-mods` is optional: it adds the visual mods (see [Mods](#mods-visual)). Then inside Claude Code, run `/help` and look for the `noctia:` skills.
 
 ## Use Noctia in Antigravity CLI (agy)
 
@@ -46,7 +47,7 @@ More in [Docs/agy.md](Docs/agy.md).
 
 ## Update
 
-Refresh the marketplace to fetch the latest version, then reinstall the plugin:
+Refresh the marketplace to fetch the latest version, then reinstall both plugins:
 
 ```bash
 /plugin marketplace update noctia-plugins
@@ -54,6 +55,7 @@ Refresh the marketplace to fetch the latest version, then reinstall the plugin:
 then
 ```bash
 /plugin install noctia@noctia-plugins
+/plugin install noctia-mods@noctia-plugins
 ```
 
 Reload without restarting Claude Code:
