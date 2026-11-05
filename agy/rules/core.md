@@ -32,6 +32,7 @@ description: Noctia rules
 ## Git
 - add, commit, push, tag are locked by a hook. Do not work around it: ask the user, who unlocks with `set-git-mode.sh ask (run by the user in a terminal)|auto`.
 - Once unlocked, follow `git-workflow`. Never edit the git mode file.
+- Each change to `ask` or `auto` resets the co-author answer: ask the user again when the hook says so.
 
 ## Releases
 - Versions are vX.Y.Z. Keep docs and changelog in step. See `release-and-deploy`.

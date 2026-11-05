@@ -30,7 +30,22 @@ test_exact_command_sets_mode() {
   [ "$(stored_mode)" = auto ]
 }
 test_context_is_printed() {
-  [ "$(submit "/noctia:git ask" | jq -r '.hookSpecificOutput.additionalContext')" = "Git mode set to ask by the user." ]
+  [[ "$(submit "/noctia:git ask" | jq -r '.hookSpecificOutput.additionalContext')" == "Git mode set to ask by the user."* ]]
+}
+test_change_to_ask_deletes_coauthor_and_asks() {
+  rm -rf "$PROJECT/.noctia"; mkdir -p "$PROJECT/.noctia"; echo yes > "$PROJECT/.noctia/coauthor"
+  [[ "$(submit "/noctia:git ask" | jq -r '.hookSpecificOutput.additionalContext')" == *"co-author"* ]] \
+    && [ ! -f "$PROJECT/.noctia/coauthor" ]
+}
+test_change_to_locked_keeps_coauthor() {
+  submit "/noctia:git ask" >/dev/null; echo yes > "$PROJECT/.noctia/coauthor"
+  [[ "$(submit "/noctia:git locked" | jq -r '.hookSpecificOutput.additionalContext')" != *"co-author"* ]] \
+    && [ -f "$PROJECT/.noctia/coauthor" ]
+}
+test_same_mode_keeps_coauthor() {
+  submit "/noctia:git auto" >/dev/null; echo yes > "$PROJECT/.noctia/coauthor"
+  [[ "$(submit "/noctia:git auto" | jq -r '.hookSpecificOutput.additionalContext')" != *"co-author"* ]] \
+    && [ -f "$PROJECT/.noctia/coauthor" ]
 }
 test_surrounding_whitespace_is_trimmed() {
   submit $'  /noctia:git locked \n' >/dev/null

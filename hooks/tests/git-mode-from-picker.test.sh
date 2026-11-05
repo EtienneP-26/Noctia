@@ -46,7 +46,7 @@ test_answers_object_sets_mode() {
 }
 test_context_is_printed() {
   reset
-  [ "$(run "$(call "$MARKER" '{}' "$(answers_of ask)")" | jq -r '.hookSpecificOutput.additionalContext')" = "Git mode set to ask by the user." ]
+  [[ "$(run "$(call "$MARKER" '{}' "$(answers_of ask)")" | jq -r '.hookSpecificOutput.additionalContext')" == "Git mode set to ask by the user."* ]]
 }
 test_plain_string_response_sets_mode() {
   reset

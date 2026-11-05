@@ -22,13 +22,14 @@ extract_mode() {
 }
 
 main() {
-  local prompt mode
+  local prompt mode out note
   command -v jq >/dev/null 2>&1 || exit 0
   prompt=$(jq -r '.prompt // empty' 2>/dev/null | trim) || exit 0
   mode=$(extract_mode "$prompt")
   [ -n "$mode" ] || exit 0
-  bash "$SCRIPT_DIR/set-git-mode.sh" "$mode" >/dev/null 2>&1 || exit 0
-  jq -nc --arg m "Git mode set to $mode by the user." \
+  out=$(bash "$SCRIPT_DIR/set-git-mode.sh" "$mode" 2>/dev/null) || exit 0
+  note=$(sed -n '2p' <<<"$out")
+  jq -nc --arg m "Git mode set to $mode by the user.${note:+ $note}" \
     '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $m}}'
 }
 

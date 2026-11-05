@@ -1,6 +1,6 @@
 {
   "name": "noctia-mods",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Noctia visual mods for Claude Code: Noctia banner, team panel, agent labels, task checklist and more.",
   "author": { "name": "Etienne Pouille" },
   "license": "MIT",

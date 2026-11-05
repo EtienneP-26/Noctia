@@ -37,15 +37,16 @@ say() {
 }
 
 main() {
-  local input mode
+  local input mode out note
   command -v jq >/dev/null 2>&1 || exit 0
   input=$(cat)
   is_picker "$input" || exit 0
   mode=$(answer_of "$input")
   case "$mode" in
     locked|ask|auto)
-      bash "$SCRIPT_DIR/set-git-mode.sh" "$mode" >/dev/null 2>&1 || exit 0
-      say "Git mode set to $mode by the user." ;;
+      out=$(bash "$SCRIPT_DIR/set-git-mode.sh" "$mode" 2>/dev/null) || exit 0
+      note=$(sed -n '2p' <<<"$out")
+      say "Git mode set to $mode by the user.${note:+ $note}" ;;
     *)
       save_debug "$input"
       say "Git mode picker: no valid answer found, nothing changed. Raw response saved in .noctia/picker-debug.json." ;;
