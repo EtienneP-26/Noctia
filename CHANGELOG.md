@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.1] - 2026-11-05
+
+### Fixed
+- Noctia graph: wide and hidden characters, bad counts and cycles no longer break the pane.
+- Task briefs: no test files in the template, no repo-wide commands in parallel waves.
+
 ## [0.6.0] - 2026-11-04
 
 ### Added
