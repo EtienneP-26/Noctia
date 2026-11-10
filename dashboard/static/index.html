@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Noctia control room</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="live-page">
+<header class="bar">
+  <h1 class="brand">Noctia <small>control room</small></h1>
+  <nav class="nav" aria-label="Pages"><a href="/" aria-current="page">Live</a><a href="/agents">Agents</a></nav>
+  <div class="bar-end">
+    <select id="session" aria-label="Session"></select>
+    <span id="live" class="off" role="status" title="Live connection">offline</span>
+  </div>
+</header>
+<section id="tiles" aria-label="Summary"></section>
+<main>
+  <section class="stage" aria-label="Agent graph">
+    <div class="stage-head">
+      <div class="view-toggle" role="group" aria-label="View">
+        <button type="button" data-view="tree" aria-pressed="true">Tree</button>
+        <button type="button" data-view="radial" aria-pressed="false">Radial</button>
+      </div>
+    </div>
+    <div id="tree"></div>
+    <svg id="graph" viewBox="0 0 800 520" role="img" aria-label="Agent graph" hidden></svg>
+  </section>
+  <aside id="waves" aria-label="Waves and tasks"></aside>
+</main>
+<section id="timeline" aria-label="Timeline"></section>
+<aside id="drawer" aria-label="Details" aria-hidden="true">
+  <button id="drawer-close" type="button" aria-label="Close details">&times;</button>
+  <div id="drawer-body"></div>
+</aside>
+<script src="/static/d3.min.js"></script>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
