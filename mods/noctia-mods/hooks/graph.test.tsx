@@ -31,7 +31,12 @@ describe('graph helpers', () => {
       node({ id: 'c', wave: 2, status: 'running', endedAt: undefined }),
     ]
     expect(finishedWaves(nodes)).toEqual([1])
-    expect(summary(1, nodes, 0)).toBe('✔ W1 · 2 agents · 3m40 · 52k tok')
+    expect(summary(1, nodes, 0)).toBe('✔ W1 · 100% · 2 agents · 3m40 · 52k tok')
+  })
+
+  test('a partly done wave shows its percent', () => {
+    const nodes = [node({ id: 'a', endedAt: 1000 }), node({ id: 'b', status: 'error', endedAt: 2000 })]
+    expect(drawGraph(nodes, 90, 3000).join('\n')).toContain('✔ W1 · 50% · 2 agents')
   })
 
   test('clock and tok format', () => {
@@ -73,7 +78,7 @@ describe('graph pane', () => {
       props: { title: 'Noctia graph', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 20 }, view: {} },
     })
     expect((await ui.find({ type: 'Text', text: /chief/ }))?.text).toContain('chief')
-    expect((await ui.find({ type: 'Text', text: /W1 · 1 agent/ }))?.text).toContain('✔ W1')
+    expect((await ui.find({ type: 'Text', text: /W1 · 100% · 1 agent/ }))?.text).toContain('✔ W1')
     await ui.unmount()
   })
 })
@@ -88,7 +93,7 @@ describe('drawGraph', () => {
       { ...base, id: 'd', wave: 2, label: 'W2·T3', task: 'done task', type: 'noctia:developer', status: 'done', startedAt: 230000, endedAt: 250000 },
     ]
     expect(drawGraph(state, 90, 260000)).toEqual([
-      '☾ GRAPH  4m20 · 53k tok  ▶ 2  ✔ 2  ✘ 0',
+      '☾ GRAPH  4m20 · 53k tok  ▶ 2  ✔ 2  ✘ 0  50%',
       '                                     ╭────────────╮',
       '                                     │ ☾ chief    │',
       '                                     ╰──────┬─────╯',
@@ -105,7 +110,7 @@ describe('drawGraph', () => {
       '                       │ done task                              │',
       '                       │ opus · 20s                             │',
       '                       ╰────────────────────────────────────────╯',
-      '✔ W1 · 1 agent · 3m40 · 52k tok',
+      '✔ W1 · 100% · 1 agent · 3m40 · 52k tok',
     ])
   })
 })

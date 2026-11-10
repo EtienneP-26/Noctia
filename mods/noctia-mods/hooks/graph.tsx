@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { GraphNode } from '../types'
+import { completion } from './progress'
 import { shortName } from './team'
 import { PALETTE } from './theme'
 
@@ -100,13 +101,14 @@ const sum = (nodes: GraphNode[]): number | undefined =>
 /**
  * # Collapsed line of a finished wave
  * ## Example
- * summary(1, nodes, now) // '✔ W1 · 4 agents · 3m40 · 52k tok'
+ * summary(1, nodes, now) // '✔ W1 · 100% · 4 agents · 3m40 · 52k tok'
  */
 export const summary = (wave: number, all: GraphNode[], now: number): string => {
   const nodes = all.filter(n => n.wave === wave)
   const span = Math.max(...nodes.map(n => n.endedAt ?? now)) - Math.min(...nodes.map(n => n.startedAt))
   const t = tok(sum(nodes))
-  return `✔ W${wave} · ${nodes.length} agent${nodes.length > 1 ? 's' : ''} · ${clock(Math.round(span / 1000))}${t ? ` · ${t} tok` : ''}`
+  const pct = completion(nodes).percent
+  return `✔ W${wave} · ${pct}% · ${nodes.length} agent${nodes.length > 1 ? 's' : ''} · ${clock(Math.round(span / 1000))}${t ? ` · ${t} tok` : ''}`
 }
 
 /**
@@ -324,7 +326,7 @@ export const drawRows = (raw: GraphNode[], width: number, now = Date.now()): Row
     ? Math.round((Math.max(...state.map(n => n.endedAt ?? now)) - Math.min(...state.map(n => n.startedAt))) / 1000)
     : 0
   const t = tok(sum(state))
-  const header = `☾ GRAPH  ${clock(span)}${t ? ` · ${t} tok` : ''}  ▶ ${count(state, 'running')}  ✔ ${count(state, 'done')}  ✘ ${count(state, 'error')}`
+  const header = `☾ GRAPH  ${clock(span)}${t ? ` · ${t} tok` : ''}  ▶ ${count(state, 'running')}  ✔ ${count(state, 'done')}  ✘ ${count(state, 'error')}  ${completion(state).percent}%`
   const pad = ' '.repeat((cols * w) / 2 - 7)
   const chief = paint(frame(['☾ chief'], 14, false, live.length > 0), 'a').map(r => ({
     text: pad + r.text,

@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import { parsePlan, planColor } from './noctia'
 
 const BASE = { plugin: 'noctia-mods', surface: 'terminal' } as const
 
@@ -54,4 +55,21 @@ test('the banner gives way to a survey', async ($, on) => {
   const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, hasSurvey: true } })
   expect(await ui.find({ type: 'Text', text: /NOCTIA/ })).toBeUndefined()
   await ui.unmount()
+})
+
+test('the plan usage file gives the 5h and weekly percentages', () => {
+  const text = '{"five_hour":{"used_percentage":41.6},"seven_day":{"used_percentage":72}}'
+  expect(parsePlan(text)).toEqual({ five: 42, week: 72 })
+})
+
+test('missing or invalid plan data gives nothing, not 0%', () => {
+  expect(parsePlan(undefined)).toEqual({ five: null, week: null })
+  expect(parsePlan('not json')).toEqual({ five: null, week: null })
+  expect(parsePlan('{"five_hour":null,"seven_day":{"used_percentage":"x"}}')).toEqual({ five: null, week: null })
+})
+
+test('plan limit colours turn warn at 70 and danger at 90', () => {
+  expect(planColor(69)).not.toBe(planColor(70))
+  expect(planColor(70)).not.toBe(planColor(90))
+  expect(planColor(95)).toBe(planColor(90))
 })

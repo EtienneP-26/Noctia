@@ -18,7 +18,9 @@ const noctia = atom({ plugin: 'noctia-mods', key: 'noctia' } as const, {
   model: '',
   percent: null,
   usd: null,
-} as NoctiaState)
+  five: null,
+  week: null,
+} as State)
 const isBannerHidden = atom({ plugin: 'noctia-mods', key: 'isBannerHidden' } as const, false)
 
 /** The slash command that opens the status pane and brings the banner back. */
@@ -26,6 +28,42 @@ export const noctiaCommand = { name: 'noctia', description: 'Show what Noctia ha
 
 function readStateFile($: EngineInterface, name: string): Promise<string | undefined> {
   return $.fs.read(`${STATE_DIR}/${name}`).catch(() => undefined)
+}
+
+type Plan = { five: number | null; week: number | null }
+type State = NoctiaState & Plan
+
+/**
+ * # Parse the plan usage file
+ * Reads the status line's usage.json and keeps the two percentages, null when missing or invalid.
+ * ## Args
+ * - text: the file content, if any
+ * ## Returns
+ * The 5h and weekly percentages, rounded.
+ */
+export function parsePlan(text: string | undefined): Plan {
+  const plan: Plan = { five: null, week: null }
+  if (!text) return plan
+  try {
+    const data = JSON.parse(text)
+    const pct = (w: unknown): number | null => {
+      const v = (w as { used_percentage?: unknown } | null)?.used_percentage
+      return typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : null
+    }
+    return { five: pct(data?.five_hour), week: pct(data?.seven_day) }
+  } catch {
+    return plan
+  }
+}
+
+/** Colour of a plan limit: danger from 90, warning from 70. */
+export const planColor = (percent: number): string =>
+  percent >= 90 ? PALETTE.bad : percent >= 70 ? PALETTE.warn : PALETTE.ok
+
+/** Reads ~/.claude/noctia/usage.json, undefined when the home or the file is unavailable. */
+function readPlanFile($: EngineInterface): Promise<string | undefined> {
+  const home = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.HOME
+  return home ? $.fs.read(`${home}/.claude/noctia/usage.json`).catch(() => undefined) : Promise.resolve(undefined)
 }
 
 const isNoctiaCommand = (c: { name: string; plugin?: string }): boolean =>
@@ -39,20 +77,22 @@ const isNoctiaCommand = (c: { name: string; plugin?: string }): boolean =>
  * - $: the engine interface
  */
 export async function refresh($: EngineInterface): Promise<void> {
-  const [mode, coauthor, model, commands, usage] = await Promise.all([
+  const [mode, coauthor, model, commands, usage, planText] = await Promise.all([
     readStateFile($, 'git-mode'),
     readStateFile($, 'coauthor'),
     $.session.model().catch(() => ''),
     $.command.list().catch(() => []),
     $.session.usage().catch(() => undefined),
+    readPlanFile($),
   ])
-  const next: NoctiaState = {
+  const next: State = {
     core: commands.some(isNoctiaCommand),
     gitMode: parseGitMode(mode),
     coauthor: parseCoauthor(coauthor),
     model: shortModel(model),
     percent: usage?.context.percent ?? null,
     usd: usage?.cost?.usd ?? null,
+    ...parsePlan(planText),
   }
   const prev = await read($, noctia)
   if (JSON.stringify(prev) !== JSON.stringify(next)) await update($, noctia, () => next)
@@ -114,6 +154,20 @@ export const registerNoctia: Register = on => {
               <Text>
                 <Text dimColor>ctx </Text>
                 <Text color={contextColor(percent)}>{bar(percent, 100, 10)}</Text> {percent}%{'   '}
+              </Text>
+            )}
+            {state.five != null && (
+              <Text>
+                <Text dimColor>5h </Text>
+                <Text color={planColor(state.five)}>{state.five}%</Text>
+                {'   '}
+              </Text>
+            )}
+            {state.week != null && (
+              <Text>
+                <Text dimColor>wk </Text>
+                <Text color={planColor(state.week)}>{state.week}%</Text>
+                {'   '}
               </Text>
             )}
             {state.usd !== null && <Text>${state.usd.toFixed(2)}{'   '}</Text>}
