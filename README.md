@@ -81,6 +81,10 @@ Noctia turns the session into a small team. The main agent is the `chief` (Opus)
 | `reader` | Haiku | Reads the codebase: where a feature or a problem is. |
 | `documenter` | Haiku | Short doc of each finished feature. |
 | `pentester` | Opus | Finds the bugs and problems of the project. |
+| `designer` | Sonnet | UI/visual design review and fixes. |
+| `legal` | Sonnet | Production compliance check: GDPR, cookies, legal notices, licenses, accessibility law. |
+
+New agents need a Claude Code restart to be available.
 
 `/noctia:build <idea>` runs the whole flow: plan, your approval, then for each feature developer, tester, documenter and a `feat/<feature>` branch; at the end the pentester looks for bugs and problems and the developer fixes them.
 
@@ -119,6 +123,8 @@ The KISS rules are strict: the shortest code that works, no dead code, no abstra
 | `agents/reader.md` | Haiku: reads the codebase, locates features and problems. |
 | `agents/documenter.md` | Haiku: short doc of each feature. |
 | `agents/pentester.md` | Opus: finds the bugs and problems, reports them. |
+| `agents/designer.md` | Sonnet: UI/visual design review and fixes. |
+| `agents/legal.md` | Sonnet: production compliance check, reports only. |
 | `skills/build` | `/noctia:build <idea>`: plan approved by you, feature loop with git branches, then pentest and fixes, then a report. |
 
 ## Mods (visual)
@@ -142,7 +148,110 @@ The KISS rules are strict: the shortest code that works, no dead code, no abstra
 
 ### Noctia graph
 
-The graph docks next to the chat in fullscreen mode and takes at most 45% of the width. It updates live while agents run. Each node shows the agent's state, type, `W<wave>·T<task>`, model and time. Tokens are shown once the agent finishes.
+The graph docks next to the chat in fullscreen mode and takes at most 45% of the width. It updates live while agents run. Each node shows the agent's state, type, `W<wave>·T<task>`, model and time. Tokens are shown once the agent finishes. The panel also shows the completion in percent, overall and per wave.
+
+## Dashboard
+
+A local "control room" web page that follows the agents of a session live. Run `/noctia:dashboard`, then open http://127.0.0.1:7777 (or the port it prints). Without the skill:
+
+```bash
+python3 dashboard/server.py --port 7777 --project .
+```
+
+- KPI tiles: progress ring, tasks, active agents, tokens, elapsed time.
+- Animated agent graph: the chief at the centre, a particle on each brief and report, link thickness = traffic, a progress ring per agent.
+- Tree view (default): chief, then agent types, then a task card per task with elapsed time, actions and last action. The Tree/Radial toggle switches to the animated graph. Finished work leaves the view 10 minutes after it ends; running work stays.
+- Waves panel with a progress bar per wave.
+- Swimlane timeline per agent, zoom 1h / 6h / All.
+- Click an agent or a task for a drawer with its brief, report, model and tokens.
+- Drawn with D3 v7.9.0, bundled in `dashboard/static/d3.min.js` (ISC license in `dashboard/static/D3-LICENSE.txt`). No CDN, no build step.
+- Needs python3 3.10 or newer. No dependency to install.
+- The source is the Claude Code session transcripts of the project. The transcript format is undocumented and may change.
+- Listens on 127.0.0.1 only. Transcripts may hold secrets, so do not expose the port.
+- Behind a reverse proxy, `--allow-host NAME` (repeatable, or `NOCTIA_DASHBOARD_ALLOW_HOSTS`, comma-separated) accepts that hostname. Only HTTPS origins are accepted for such names.
+- Transcripts are read-only. The [Agents page](#agents-page) is the only part that writes. Stop the server with Ctrl-C, or TaskStop on its background task.
+
+## Usage limits
+
+The status line shows your plan usage: `5h NN% ↻HH:MM · wk NN% ↻Day`, for the five-hour and weekly windows with their reset times. It reads the `rate_limits` fields (`five_hour`, `seven_day`) of the status line JSON that Claude Code documents. Only Pro, Max and Ultra plans send them, and only after the first response. The colour turns yellow at 70% and red at 90%.
+
+- The status line writes a snapshot to `~/.claude/noctia/usage.json` (file mode 0600). Override the path with `NOCTIA_USAGE_FILE`.
+- The dashboard reads it at `/api/usage` and shows two ring tiles with a reset countdown. It shows "stale" after 30 minutes.
+- The Noctia banner reads the same file.
+- No credentials or undocumented endpoints are used.
+
+## Local AI
+
+The `noctia-localai` MCP server lets the chief call self-hosted models with `list_local` and `ask_local`. It reads `~/.config/noctia/localai.json`, or the file named by `NOCTIA_LOCALAI_CONFIG`. Example with a vLLM server, an Ollama server and a `command` backend (a Python decision model such as Laya):
+
+```json
+{
+  "backends": {
+    "vllm": {
+      "type": "openai",
+      "base_url": "http://127.0.0.1:8000/v1",
+      "model": "your-vllm-model",
+      "api_key_env": "VLLM_API_KEY",
+      "timeout": 60
+    },
+    "ollama": {
+      "type": "openai",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "llama3.1"
+    },
+    "laya": {
+      "type": "command",
+      "argv": ["env", "USE_TF=0", "/home/you/.local/share/noctia/laya-venv/bin/python", "-I", "/home/you/Noctia/localai/adapters/laya_route.py"],
+      "timeout": 90
+    }
+  }
+}
+```
+
+- Backend names: `a-z`, `0-9`, `_` or `-`, up to 32 characters.
+- Keys are never written in the file. `api_key_env` is the name of an environment variable that holds the key. An `api_key` field is rejected.
+- `timeout` is in seconds, from 1 to 600. Default 60.
+- `command` contract: Noctia runs `argv` without a shell. It writes `{"prompt", "system", "max_tokens"}` as JSON on stdin, and the script must print `{"text": "..."}` on stdout and exit with 0.
+- The file is read on each call, so edits apply without a restart.
+- The answers are unverified. The chief checks them before using them.
+
+### Which agents can call it
+
+`chief`, `developer`, `reader` and `documenter` have the tools `mcp__noctia-localai__list_local` and `mcp__noctia-localai__ask_local`. Use them only for cheap, simple or private sub-tasks, and check the output.
+
+### Laya (decision model)
+
+Laya is a small Python model that picks an agent and a model for a task. It is wired as a `command` backend. Install it outside the repo:
+
+```bash
+python3 -m venv ~/.local/share/noctia/laya-venv
+~/.local/share/noctia/laya-venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+~/.local/share/noctia/laya-venv/bin/pip install laya
+```
+
+It needs about 1.3 GB, plus the model weights. Config entry (`argv` runs without a shell, so use absolute paths):
+
+```json
+"laya": {
+  "type": "command",
+  "argv": ["env", "USE_TF=0", "/home/you/.local/share/noctia/laya-venv/bin/python", "-I", "/home/you/Noctia/localai/adapters/laya_route.py"],
+  "timeout": 90
+}
+```
+
+- Plain task text in the prompt gives an agent and a model choice, each with probabilities.
+- A JSON object `{"state", "questions"}` in the prompt gives answers to your own typed questions. The adapter checks the shape only; the question types (`choice`, `score`, `noul`) are passed to Laya.
+- Each call loads the model again: about 13 s on CPU.
+- The default checkpoint is multilingual, so French tasks work.
+- Advice only. Laya is weak at zero-shot typed decisions, so the chief decides.
+
+## Agents page
+
+With the dashboard running, open http://127.0.0.1:7777/agents. It lists the agents from `agents/*.md` with their model, tools and an enabled switch.
+
+- Model: `haiku`, `sonnet`, `opus` or `inherit`. The change rewrites the `model:` line of `agents/<name>.md`. Restart Claude Code to apply it. A plugin update overwrites the change.
+- Enabled: stored in `~/.claude/noctia/agents.json`, outside the project. A disabled agent is listed at session start, and the chief does not delegate to it. This is a soft rule, not a hard block.
+- The `chief` cannot be disabled.
 
 ## Mentor mode
 
@@ -169,6 +278,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 Both then appear as co-authors on the commit on GitHub. If you say no, no credit is added. Your answer is remembered in `.noctia/coauthor`, and you can change it by running `bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/set-coauthor.sh" yes` (or `no`). The credit is only attribution: it does not give anyone rights over your code, your `LICENSE` does.
+
+The git guard enforces the answer on each commit: `yes` requires the `Co-Authored-By` trailer, `no` refuses it, and a missing answer blocks the commit until the user is asked. `.noctia/coauthor` is protected like the mode file, so Claude cannot change it.
 
 ## Limits to know
 
