@@ -14,6 +14,12 @@ set_mode() {
   echo "$1" > "$PROJECT/$MODE_FILE"
 }
 
+# set_coauthor ANSWER: store the co-author answer of the fake project (none removes it).
+set_coauthor() {
+  mkdir -p "$PROJECT/.noctia"
+  if [ "$1" = none ]; then rm -f "$PROJECT/.noctia/coauthor"; else echo "$1" > "$PROJECT/.noctia/coauthor"; fi
+}
+
 # bash_decision COMMAND: print the permission decision for a Bash call (empty when none).
 bash_decision() {
   jq -n --arg c "$1" '{tool_name: "Bash", tool_input: {command: $c}}' |
@@ -34,8 +40,8 @@ check() {
 
 test_commit_denied_when_locked() { set_mode locked; [ "$(bash_decision "git commit -m x")" = deny ]; }
 test_commit_denied_without_mode_file() { rm -rf "$PROJECT/.noctia"; [ "$(bash_decision "git push")" = deny ]; }
-test_commit_asks_in_ask_mode() { set_mode ask; [ "$(bash_decision "git -C . commit -m x")" = ask ]; }
-test_commit_allowed_in_auto_mode() { set_mode auto; [ -z "$(bash_decision "git commit -m x")" ]; }
+test_commit_asks_in_ask_mode() { set_mode ask; set_coauthor no; [ "$(bash_decision "git -C . commit -m x")" = ask ]; }
+test_commit_allowed_in_auto_mode() { set_mode auto; set_coauthor no; [ -z "$(bash_decision "git commit -m x")" ]; }
 test_read_only_git_allowed() { set_mode locked; [ -z "$(bash_decision "git status && git log")" ]; }
 
 test_script_with_mode_denied() {
@@ -73,6 +79,68 @@ test_write_edit_mode_file_denied() {
   [ "$(write_decision Edit "$PROJECT/$MODE_FILE")" = deny ]
 }
 test_write_other_file_allowed() { [ -z "$(write_decision Write "$PROJECT/src/a.txt")" ]; }
+
+test_skill_flow_allowed() {
+  set_mode locked
+  [ -z "$(bash_decision 'bash "/home/u/.claude/plugins/cache/n/noctia/1/hooks/scripts/set-git-mode.sh" status')" ] &&
+  [ -z "$(bash_decision 'bash /p/hooks/scripts/set-git-mode.sh status 2>&1')" ] &&
+  [ -z "$(bash_decision 'bash /p/hooks/scripts/set-git-mode.sh status || true')" ] &&
+  [ -z "$(bash_decision 'bash "/p/hooks/scripts/set-coauthor.sh" yes')" ] &&
+  [ -z "$(bash_decision 'bash "/p/hooks/scripts/set-coauthor.sh" no')" ]
+}
+test_script_reads_allowed() {
+  set_mode locked
+  [ -z "$(bash_decision 'cat hooks/scripts/set-git-mode.sh')" ] &&
+  [ -z "$(bash_decision 'grep -n mode hooks/scripts/set-git-mode.sh hooks/scripts/guard-git.sh')" ] &&
+  [ -z "$(bash_decision "sed -n '1,40p' hooks/scripts/set-git-mode.sh")" ] &&
+  [ -z "$(bash_decision 'cat .noctia/coauthor')" ]
+}
+test_description_field_ignored() {
+  set_mode locked
+  [ -z "$(jq -n '{tool_name:"Bash",tool_input:{command:"ls",description:"check git-mode and set-git-mode.sh auto"}}' | CLAUDE_PROJECT_DIR="$PROJECT" bash "$HOOK")" ]
+}
+test_git_bypasses_denied() {
+  set_mode locked
+  local c
+  for c in '/usr/bin/git commit -m x' '"git" commit -m x' 'g"it" push' "git -C 'my dir' commit -m x" 'git -C "my dir" add .' \
+    'git -c user.name=x commit -m x' 'GIT_DIR=x git commit -m x' 'FOO=1 BAR=2 /usr/bin/git tag v1' 'bash -c "git push"' '(git add .)'; do
+    [ "$(bash_decision "$c")" = deny ] || { echo "  not denied: $c"; return 1; }
+  done
+}
+test_state_file_bypasses_denied() {
+  set_mode locked
+  local c
+  for c in 'echo auto > .noctia/git-mod?' 'echo auto > .noctia/git-"mode"' 'echo auto > .noctia/g*' 'cp /tmp/x .noctia/git-mode' 'mv /tmp/x .noctia/coauthor' \
+    'echo yes > .noctia/coauthor' 'sed -i s/no/yes/ .noctia/coauthor' 'printf yes | tee .noctia/coauthor' 'cd .noctia && echo yes > coauthor' 'rm .noctia/coauthor'; do
+    [ "$(bash_decision "$c")" = deny ] || { echo "  not denied: $c"; return 1; }
+  done
+}
+test_write_edit_coauthor_denied() {
+  [ "$(write_decision Write "$PROJECT/.noctia/coauthor")" = deny ] && [ "$(write_decision Edit "$PROJECT/.noctia/coauthor")" = deny ]
+}
+test_coauthor_yes() {
+  set_mode auto; set_coauthor yes
+  [ "$(bash_decision 'git commit -m x')" = deny ] &&
+  [ -z "$(bash_decision 'git commit -m "x
+
+Co-Authored-By: Claude <noreply@anthropic.com>"')" ]
+}
+test_coauthor_no() {
+  set_mode auto; set_coauthor no
+  [ "$(bash_decision 'git commit -m "x
+
+Co-Authored-By: Claude <noreply@anthropic.com>"')" = deny ] &&
+  [ -z "$(bash_decision 'git commit -m x')" ]
+}
+test_coauthor_missing() {
+  set_mode auto; set_coauthor none
+  [ "$(bash_decision 'git commit -m x')" = deny ] && [ -z "$(bash_decision 'git add .')" ]
+}
+test_coauthor_checked_in_ask_mode() {
+  set_mode ask; set_coauthor yes
+  [ "$(bash_decision 'git commit -m x')" = deny ] &&
+  [ "$(bash_decision 'git commit -m "x Co-Authored-By: A <a@b.c>"')" = ask ]
+}
 
 # ask_decision EXTRA LABELS: decision for an AskUserQuestion call on the picker; EXTRA is merged into tool_input.
 ask_decision() {

@@ -7,8 +7,16 @@ set -u
 INPUT=$(cat)
 STATE_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.noctia/git-mode"
 
-# Matches "git [-C dir | -c x=y | --flag]... add|commit|push|tag" anywhere in a command.
-GIT_WRITE='(^|[^[:alnum:]_./-])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(add|commit|push|tag)([[:space:]";&|\\]|$)'
+# CMD is the decoded Bash command; NORM is CMD without quotes or backslashes, so "git" and g"it" read as git.
+# Limit: variable indirection (g=git; $g commit) and encoded payloads cannot be seen by a text guard.
+CMD=$INPUT
+command -v jq >/dev/null 2>&1 && CMD=$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null)
+NORM=$(tr -d "\"'\\\\" <<<"$CMD")
+
+# Matches "git [-C dir | -c x=y | --flag]... SUB" in NORM; also /usr/bin/git and env prefixes (GIT_DIR=x git ...).
+GIT_OPTS='(^|[^[:alnum:]_.-])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)*)*[[:space:]]+'
+GIT_WRITE="${GIT_OPTS}(add|commit|push|tag)([[:space:];&|]|\$)"
+GIT_COMMIT="${GIT_OPTS}commit([[:space:];&|]|\$)"
 
 PICKER_MARKER='Noctia: choose the git mode for this project'
 
@@ -29,9 +37,9 @@ input_has() {
   grep -qE "$1" <<<"$INPUT"
 }
 
-# deny_unlock: refuse a change of the mode file; the user must run the command in their own terminal.
+# deny_unlock: refuse a change of the state files; the user must run the command in their own terminal.
 deny_unlock() {
-  decide deny "Noctia: the git mode is user-controlled. Do not edit it or run set-git-mode.sh with a mode. Ask the user to type /noctia:git <locked|ask|auto> in the chat. In agy the user runs this in their terminal: bash $(dirname "$0")/set-git-mode.sh <locked|ask|auto>"
+  decide deny "Noctia: the git mode and co-author files are user-controlled. Do not edit them or run the mode script with a mode. Ask the user to type /noctia:git <locked|ask|auto> in the chat. In agy the user runs this in their terminal: bash $(dirname "$0")/set-git-mode.sh <locked|ask|auto>"
   exit 0
 }
 
@@ -40,45 +48,62 @@ is_bash() {
   input_has '"tool_name"[[:space:]]*:[[:space:]]*"Bash"'
 }
 
-# unlock_script_call: succeed if set-git-mode.sh is run with anything but status (or no argument).
+# unlock_script_call: succeed if set-git-mode.sh is run with an argument other than status (or none, or a redirection).
 unlock_script_call() {
   local rest
   while IFS= read -r rest; do
-    grep -qE '^(\\")?[[:space:]]*(status)?[[:space:]]*(\\n|"|[;&|]|$)' <<<"$rest" || return 0
-  done < <(sed 's/set-git-mode\.sh/\n@@/g' <<<"$INPUT" | grep '^@@' | sed 's/^@@//')
+    grep -qE '^[[:space:]]*(status)?[[:space:]]*([0-9]*[<>;&|)]|$)' <<<"$rest" || return 0
+  done < <(sed 's/set-git-mode\.sh/\n@@/g' <<<"$NORM" | grep '^@@' | sed 's/^@@//')
   return 1
 }
 
-# mentions_mode_file: succeed if the command names the git-mode file itself (git-mode-from-*.sh and set-git-mode.sh do not count).
-mentions_mode_file() {
-  grep -qE '(^|[^[:alnum:]_-])git-mode([^[:alnum:]_.-]|$)' <<<"$INPUT"
+# mentions_state_file: succeed if the command names the .noctia folder, the git-mode or the coauthor file (also globbed or quote-split).
+mentions_state_file() {
+  grep -qE '\.noctia|(^|[^[:alnum:]_-])(git-mode?|coauthor)([^[:alnum:]_.-]|$)' <<<"$NORM"
 }
 
-# read_only_command: succeed if the command is a plain read (cat, head, tail, grep, ls, wc) with no shell tricks.
+# read_only_command: succeed if the command is a plain read (cat, head, tail, grep, ls, wc, sed -n Np) with no shell tricks.
 read_only_command() {
-  input_has '"command"[[:space:]]*:[[:space:]]*"(cat|head|tail|grep|ls|wc)[[:space:]][^;&|<>$`()\\]*"'
+  grep -qE '^[[:space:]]*(cat|head|tail|grep|ls|wc|sed[[:space:]]+-n[[:space:]]+["'"'"']?[0-9]+(,[0-9]+)?p["'"'"']?)[[:space:]][^;&|<>$`()\\]*$' <<<"$CMD"
 }
 
-# guard_state_file: refuse any attempt to change the mode file, by Bash or by Write/Edit.
+# guard_state_file: refuse any attempt to change the mode or co-author file, by Bash or by Write/Edit.
 guard_state_file() {
   if is_bash; then
+    read_only_command && return 0
     unlock_script_call && deny_unlock
-    mentions_mode_file && ! read_only_command && deny_unlock
-  elif input_has '"file_path"[[:space:]]*:[[:space:]]*"[^"]*git-mode"'; then
+    mentions_state_file && deny_unlock
+  elif input_has '"file_path"[[:space:]]*:[[:space:]]*"[^"]*(\.noctia/|git-mode"|coauthor")'; then
     deny_unlock
   fi
   return 0
 }
 
+# guard_coauthor: on git commit, the Co-Authored-By trailer must match the saved co-author answer.
+guard_coauthor() {
+  local file="${CLAUDE_PROJECT_DIR:-$PWD}/.noctia/coauthor" answer="" has=1
+  grep -qE "$GIT_COMMIT" <<<"$NORM" || return 0
+  [ -f "$file" ] && answer=$(tr -d '[:space:]' < "$file")
+  grep -qi 'Co-Authored-By:' <<<"$CMD" && has=0
+  case "$answer:$has" in
+    yes:0|no:1) return 0 ;;
+    yes:1) decide deny "Noctia: co-author answer is yes. Add the two Co-Authored-By lines from the git-workflow skill to the commit message with -m, then retry." ;;
+    no:0) decide deny "Noctia: co-author answer is no. Remove every Co-Authored-By line from the commit message, then retry." ;;
+    *) decide deny "Noctia: no co-author answer saved. Ask the user whether to credit you as co-author, save it with set-coauthor.sh yes or no (git-workflow step 3), then retry the commit." ;;
+  esac
+  exit 0
+}
+
 # guard_git_command: apply the current mode to a Bash git write command.
 guard_git_command() {
-  input_has '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || return 0
-  input_has "$GIT_WRITE" || return 0
+  is_bash || return 0
+  grep -qE "$GIT_WRITE" <<<"$NORM" || return 0
 
   case "$(read_mode)" in
     auto)
-      return 0 ;;
+      guard_coauthor ;;
     ask)
+      guard_coauthor
       if input_has '"permission_mode"[[:space:]]*:[[:space:]]*"bypassPermissions"'; then
         decide deny "Noctia: git mode is ask but permissions are bypassed, so it cannot prompt. Ask the user in chat, or have them run /noctia:git auto."
       else
