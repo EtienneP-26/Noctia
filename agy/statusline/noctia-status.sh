@@ -9,13 +9,17 @@ FIELDS=()
 SEGS=()
 PLAIN=()
 
+# shellcheck source=limits.sh
+HERE=${BASH_SOURCE[0]%/*}; [ "$HERE" = "${BASH_SOURCE[0]}" ] && HERE=.
+. "$HERE/limits.sh"
+
 # clean: stdin to stdout, drop control characters and ESC.
 clean() { tr -d '\000-\037\177'; }
 
 # rgb R G B: print the truecolor escape for a foreground colour.
 rgb() { printf '%s[38;2;%s;%s;%sm' "$ESC" "$1" "$2" "$3"; }
 
-# read_fields: one jq call, fill FIELDS (model, effort, percent, usd, estimated, cwd, subagents, tasks).
+# read_fields: one jq call, fill FIELDS (model, effort, percent, usd, estimated, cwd, subagents, tasks, width, 5h pct/reset, 7d pct/reset).
 read_fields() {
   local out
   out=$(jq -r '
@@ -25,10 +29,12 @@ read_fields() {
     (.context_window.used_percentage | n), (.cost.total_usd | n),
     ((.cost.estimated // false) | tostring), (.cwd | s),
     ((.subagents | if type == "array" then length elif type == "number" then . else 0 end)),
-    (.task_count | n), (.terminal_width | n), "end"
+    (.task_count | n), (.terminal_width | n),
+    (.rate_limits.five_hour.used_percentage | n), (.rate_limits.five_hour.resets_at | n),
+    (.rate_limits.seven_day.used_percentage | n), (.rate_limits.seven_day.resets_at | n), "end"
   ' 2>/dev/null) || return 1
   mapfile -t FIELDS <<< "$out"
-  [ "${#FIELDS[@]}" -ge 10 ]
+  [ "${#FIELDS[@]}" -ge 14 ]
 }
 
 # add COLOR TEXT: append one coloured segment (TEXT is cleaned first).
@@ -113,7 +119,7 @@ main() {
   command -v jq >/dev/null 2>&1 || { echo Noctia; return 0; }
   read_fields || { echo Noctia; return 0; }
   add "167 139 250" "☾ Noctia"
-  add_model; add_context; add_cost; add_git_mode; add_counts; add_mentor
+  add_model; add_context; add_limits; add_cost; add_git_mode; add_counts; add_mentor
   render
 }
 
