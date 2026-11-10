@@ -5,5 +5,13 @@
   "author": {
     "name": "Etienne Pouille"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "mcpServers": {
+    "noctia-localai": {
+      "command": "python3",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/localai/server.py"
+      ]
+    }
+  }
 }

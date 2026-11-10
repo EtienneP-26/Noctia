@@ -65,10 +65,27 @@ project_is_empty() {
   [ -z "$(ls -A | grep -vE '^(\.git|\.noctia)$')" ]
 }
 
+# disabled_agents: print one line naming the agents disabled in the settings file; silent on any problem.
+disabled_agents() {
+  local file="${NOCTIA_AGENTS_SETTINGS:-$HOME/.claude/noctia/agents.json}" names
+  [ -f "$file" ] || return 0
+  names=$(python3 -I -c '
+import json, re, sys
+try:
+    data = json.load(open(sys.argv[1]))["disabled"]
+    print(", ".join(n for n in data if isinstance(n, str) and re.fullmatch(r"[a-z][a-z0-9-]{0,31}", n)))
+except Exception:
+    pass
+' "$file" 2>/dev/null) || return 0
+  [ -n "$names" ] && echo "Disabled agents (do not delegate to them): $names."
+  return 0
+}
+
 # build_context: assemble the full text injected into the session.
 build_context() {
   cat "$PLUGIN_ROOT/rules/core.md"
   echo
+  disabled_agents
   echo "## Project scan"
   if project_is_empty; then
     echo "Empty directory: new project. Propose a minimal structure (tests, CI, docs, README) before coding."
