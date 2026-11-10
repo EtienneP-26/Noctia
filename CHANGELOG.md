@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-11
+
 ### Added
 - Usage limits (5h and week windows) in the status line, the dashboard and the Noctia banner.
 - `designer` agent (UI and visual design review and fixes) and `legal` agent (production compliance check, reports only). Wired in the chief, the build skill, the README and the rules.
