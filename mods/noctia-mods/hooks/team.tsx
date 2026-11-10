@@ -15,6 +15,8 @@ const COLORS: Record<string, string> = {
   reader: '#93c5fd',
   documenter: '#e2e8f0',
   pentester: '#fca5a5',
+  designer: '#fdba74',
+  legal: '#a3e635',
 }
 
 const ICON = { running: '▶', done: '✔', error: '✘' } as const

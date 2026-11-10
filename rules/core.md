@@ -6,7 +6,9 @@
 - Code, one feature at a time: `developer` (Sonnet). Normal run and use of a feature, its tests: `tester` (Haiku).
 - Big reads, "where is X / where is the problem": `reader` (Haiku), ask for a short summary.
 - Short doc of a finished feature: `documenter` (Haiku).
+- UI/visual design review and fixes: `designer` (Sonnet), on features with a UI.
 - `pentester` (Opus, expensive): finds the bugs and problems of the project. Only when the user asks, or once at the end of `/noctia:build`. Never after each change.
+- `legal` (Sonnet): production compliance check (GDPR, cookies, legal notices, licenses, accessibility law). Reports only, not legal advice. Once before a release or at the end of `/noctia:build`, never after each change.
 - A whole project or feature: `/noctia:build`. The user approves the plan before any code.
 
 ## Style
