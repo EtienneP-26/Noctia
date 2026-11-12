@@ -114,6 +114,7 @@ The KISS rules are strict: the shortest code that works, no dead code, no abstra
 | `skills/release-and-deploy` | Versioning vX.Y.Z, branches, CI/CD, changelog, docs. |
 | `skills/git-workflow` | How to commit and push once unlocked (co-author question included). |
 | `skills/git` | The user-only command that unlocks git (`/noctia:git`). |
+| `skills/config` | The user-only command that views and changes the settings (`/noctia:config`). |
 | `skills/help-me-build-it` | Mentor mode (`/noctia:help-me-build-it`): Claude guides you instead of coding, you write the code. |
 | `settings.json` | Makes `noctia:chief` the main agent. |
 | `agents/chief.md` | Opus: main agent, leads the team. |
@@ -150,6 +151,24 @@ The KISS rules are strict: the shortest code that works, no dead code, no abstra
 
 The graph docks next to the chat in fullscreen mode and takes at most 45% of the width. It updates live while agents run. Each node shows the agent's state, type, `W<wave>·T<task>`, model and time. Tokens are shown once the agent finishes. The panel also shows the completion in percent, overall and per wave.
 
+## Settings
+
+Noctia stores its settings in `~/.claude/noctia/settings.json` (change the path with `NOCTIA_SETTINGS`). Change them on the dashboard Settings page (`/settings`), or with `/noctia:config [dashboard | workflow | git]`. Both write the same file.
+
+| Key | Default | Values |
+|---|---|---|
+| `dashboard.autostart` | `false` | start the dashboard when a session starts |
+| `dashboard.port` | `7777` | 1024 to 65535 |
+| `dashboard.summaries` | `false` | one Haiku mission summary per brief (opt-in) |
+| `dashboard.retire_seconds` | `10` | 0 to 3600: delay before finished work leaves the Tree |
+| `workflow.pentest`, `workflow.designer`, `workflow.legal`, `workflow.docs` | `true` | steps of `/noctia:build`; off steps are skipped |
+| `git.default_mode` | `locked` | `locked` or `ask` |
+| `git.default_coauthor` | `ask` | `ask`, `yes` or `no` |
+
+- Environment variables win over the file for auto-start: `NOCTIA_DASHBOARD_AUTOSTART=1` (on) or `0` (off), and `NOCTIA_DASHBOARD_PORT`. `NOCTIA_DASHBOARD_SUMMARIES=1` turns summaries on.
+- `git.default_mode` only accepts `locked` or `ask`. It applies to projects that have no mode set yet. `auto` is set per project with `/noctia:git auto`.
+- An invalid value is ignored and the default is used.
+
 ## Dashboard
 
 A local "control room" web page that follows the agents of a session live. Run `/noctia:dashboard`, then open http://127.0.0.1:7777 (or the port it prints). Without the skill:
@@ -159,11 +178,12 @@ python3 dashboard/server.py --port 7777 --project .
 ```
 
 - KPI tiles: progress ring, tasks, active agents, tokens, elapsed time.
-- Animated agent graph: the chief at the centre, a particle on each brief and report, link thickness = traffic, a progress ring per agent.
-- Tree view (default): chief, then agent types, then a task card per task with elapsed time, actions and last action. The Tree/Radial toggle switches to the animated graph. Finished work leaves the view 10 minutes after it ends; running work stays.
+- Tree view, the only view: chief, then agent types, then a task card per task with elapsed time, actions and last action. Finished work leaves the view `dashboard.retire_seconds` after it ends (default 10 s, set on the Settings page); running work stays.
 - Waves panel with a progress bar per wave.
-- Swimlane timeline per agent, zoom 1h / 6h / All.
+- Swimlane timeline per agent, zoom 1h / 6h / All. Each task shows its start and end time.
 - Click an agent or a task for a drawer with its brief, report, model and tokens.
+- Yellow accent on a dark blue base.
+- Mission summaries (opt-in: `dashboard.summaries` on the Settings page, or `--summaries`): one short French sentence per brief, written by `claude -p --model haiku`. Results are cached in `~/.claude/noctia/summaries.json`. Each brief without a cached summary costs one small Haiku call.
 - Drawn with D3 v7.9.0, bundled in `dashboard/static/d3.min.js` (ISC license in `dashboard/static/D3-LICENSE.txt`). No CDN, no build step.
 - Needs python3 3.10 or newer. No dependency to install.
 - The source is the Claude Code session transcripts of the project. The transcript format is undocumented and may change.
@@ -182,7 +202,7 @@ The status line shows your plan usage: `5h NN% ↻HH:MM · wk NN% ↻Day`, for t
 
 ## Local AI
 
-The `noctia-localai` MCP server lets the chief call self-hosted models with `list_local` and `ask_local`. It reads `~/.config/noctia/localai.json`, or the file named by `NOCTIA_LOCALAI_CONFIG`. Example with a vLLM server, an Ollama server and a `command` backend (a Python decision model such as Laya):
+The `noctia-localai` MCP server lets the chief call self-hosted models with `list_local` and `ask_local`. It reads `~/.config/noctia/localai.json`, or the file named by `NOCTIA_LOCALAI_CONFIG`. Example with a vLLM server, an Ollama server and a `command` backend (any local script):
 
 ```json
 {
@@ -199,9 +219,9 @@ The `noctia-localai` MCP server lets the chief call self-hosted models with `lis
       "base_url": "http://127.0.0.1:11434/v1",
       "model": "llama3.1"
     },
-    "laya": {
+    "myscript": {
       "type": "command",
-      "argv": ["env", "USE_TF=0", "/home/you/.local/share/noctia/laya-venv/bin/python", "-I", "/home/you/Noctia/localai/adapters/laya_route.py"],
+      "argv": ["/usr/bin/python3", "-I", "/home/you/bin/my_model.py"],
       "timeout": 90
     }
   }
@@ -215,41 +235,19 @@ The `noctia-localai` MCP server lets the chief call self-hosted models with `lis
 - The file is read on each call, so edits apply without a restart.
 - The answers are unverified. The chief checks them before using them.
 
+### Managed from Settings
+
+The dashboard Settings page (`/settings`) lists the backends. You can add, test or remove one, and the page writes the same `localai.json` file, with the same rules (keys are still read from the environment only).
+
 ### Which agents can call it
 
-`chief`, `developer`, `reader` and `documenter` have the tools `mcp__noctia-localai__list_local` and `mcp__noctia-localai__ask_local`. Use them only for cheap, simple or private sub-tasks, and check the output.
-
-### Laya (decision model)
-
-Laya is a small Python model that picks an agent and a model for a task. It is wired as a `command` backend. Install it outside the repo:
-
-```bash
-python3 -m venv ~/.local/share/noctia/laya-venv
-~/.local/share/noctia/laya-venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
-~/.local/share/noctia/laya-venv/bin/pip install laya
-```
-
-It needs about 1.3 GB, plus the model weights. Config entry (`argv` runs without a shell, so use absolute paths):
-
-```json
-"laya": {
-  "type": "command",
-  "argv": ["env", "USE_TF=0", "/home/you/.local/share/noctia/laya-venv/bin/python", "-I", "/home/you/Noctia/localai/adapters/laya_route.py"],
-  "timeout": 90
-}
-```
-
-- Plain task text in the prompt gives an agent and a model choice, each with probabilities.
-- A JSON object `{"state", "questions"}` in the prompt gives answers to your own typed questions. The adapter checks the shape only; the question types (`choice`, `score`, `noul`) are passed to Laya.
-- Each call loads the model again: about 13 s on CPU.
-- The default checkpoint is multilingual, so French tasks work.
-- Advice only. Laya is weak at zero-shot typed decisions, so the chief decides.
+`chief`, `developer`, `reader` and `documenter` have the tools `mcp__noctia-localai__list_local` and `mcp__noctia-localai__ask_local`. The per-agent switch on the Settings page adds or removes these two tools in `agents/<name>.md`. Restart Claude Code to apply it, and a plugin update overwrites the change. Use the tools only for cheap, simple or private sub-tasks, and check the output.
 
 ## Agents page
 
 With the dashboard running, open http://127.0.0.1:7777/agents. It lists the agents from `agents/*.md` with their model, tools and an enabled switch.
 
-- Model: `haiku`, `sonnet`, `opus` or `inherit`. The change rewrites the `model:` line of `agents/<name>.md`. Restart Claude Code to apply it. A plugin update overwrites the change.
+- Model: `haiku`, `sonnet`, `opus`, `fable` or `inherit`. The change rewrites the `model:` line of `agents/<name>.md`. Restart Claude Code to apply it. A plugin update overwrites the change. `fable` is a choice only: no agent uses it by default.
 - Enabled: stored in `~/.claude/noctia/agents.json`, outside the project. A disabled agent is listed at session start, and the chief does not delegate to it. This is a soft rule, not a hard block.
 - The `chief` cannot be disabled.
 

@@ -6,11 +6,68 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import ConfigError, load_config, public_view  # noqa: E402
+from config import (ConfigError, load_config, public_view,  # noqa: E402
+                    remove_backend, save_backend, validate_backend)
 
 OPENAI = {"type": "openai", "base_url": "http://127.0.0.1:8000/v1", "model": "qwen",
           "api_key_env": "VLLM_API_KEY", "timeout": 60}
 COMMAND = {"type": "command", "argv": ["python3", "run.py"], "timeout": 30}
+
+
+class WriteTest(unittest.TestCase):
+    """Config writing."""
+
+    def setUp(self):
+        """Create a temp config path."""
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = os.path.join(self.tmp.name, "sub", "c.json")
+
+    def test_save_new_and_roundtrip(self):
+        """A saved backend loads back."""
+        save_backend("a", OPENAI, self.path)
+        save_backend("b", COMMAND, self.path)
+        got = load_config(self.path)
+        self.assertEqual(got["a"].model, "qwen")
+        self.assertEqual(got["b"].argv, ("python3", "run.py"))
+
+    def test_update(self):
+        """Saving an existing name replaces it."""
+        save_backend("a", OPENAI, self.path)
+        save_backend("a", dict(OPENAI, model="other"), self.path)
+        self.assertEqual(load_config(self.path)["a"].model, "other")
+
+    def test_remove(self):
+        """Remove returns True then False."""
+        save_backend("a", OPENAI, self.path)
+        self.assertTrue(remove_backend("a", self.path))
+        self.assertFalse(remove_backend("a", self.path))
+        self.assertEqual(load_config(self.path), {})
+
+    def test_remove_missing_file(self):
+        """Remove on a missing file is False and creates nothing."""
+        self.assertFalse(remove_backend("a", self.path))
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_invalid_inputs(self):
+        """Bad name, api_key, URL and userinfo are rejected."""
+        for name, spec in [("Bad Name", OPENAI), ("a", dict(OPENAI, api_key="x")),
+                           ("a", dict(OPENAI, base_url="ftp://h")),
+                           ("a", dict(OPENAI, base_url="http://u:p@h/v1")),
+                           ("a", dict(OPENAI, extra=1))]:
+            with self.assertRaises(ConfigError):
+                save_backend(name, spec, self.path)
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_modes(self):
+        """File is 0600 and directory 0700."""
+        save_backend("a", OPENAI, self.path)
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o600)
+        self.assertEqual(os.stat(os.path.dirname(self.path)).st_mode & 0o777, 0o700)
+
+    def test_validate_returns_dict(self):
+        """validate_backend returns a plain dict."""
+        self.assertEqual(validate_backend("b", COMMAND)["argv"], ["python3", "run.py"])
 
 
 class ConfigTest(unittest.TestCase):
@@ -32,10 +89,10 @@ class ConfigTest(unittest.TestCase):
 
     def test_valid(self):
         """Both types load."""
-        cfg = self.load({"vllm": OPENAI, "laya": COMMAND})
+        cfg = self.load({"vllm": OPENAI, "script": COMMAND})
         self.assertEqual(cfg["vllm"].model, "qwen")
-        self.assertEqual(cfg["laya"].argv, ("python3", "run.py"))
-        self.assertEqual(cfg["laya"].timeout, 30)
+        self.assertEqual(cfg["script"].argv, ("python3", "run.py"))
+        self.assertEqual(cfg["script"].timeout, 30)
 
     def test_default_timeout(self):
         """Timeout defaults to 60."""
@@ -120,3 +177,17 @@ class ConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_concurrent_saves_keep_all(tmp_path):
+    """20 parallel saves leave valid JSON with every backend."""
+    import json
+    import threading
+    path = str(tmp_path / "localai.json")
+    spec = {"type": "command", "argv": ["echo"]}
+    threads = [threading.Thread(target=save_backend, args=(f"b{i}", spec, path))
+               for i in range(20)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    data = json.load(open(path))
+    assert set(data["backends"]) == {f"b{i}" for i in range(20)}

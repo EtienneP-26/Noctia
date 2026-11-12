@@ -1,7 +1,11 @@
 """Loader and validator for the local-AI backends config."""
+import contextlib
+import fcntl
 import json
 import os
 import re
+import tempfile
+import threading
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -98,33 +102,115 @@ def _check_argv(name, raw):
     return tuple(argv)
 
 
-def _build(name, raw):
-    """Validate one backend entry and build it."""
+def validate_backend(name, spec):
+    """Validate one backend spec and return a clean dict."""
     if not isinstance(name, str) or not NAME_RE.match(name):
         _fail(name, "name", "must match ^[a-z0-9_-]{1,32}$")
-    kind = _check_fields(name, raw)
-    timeout = _check_timeout(name, raw)
+    kind = _check_fields(name, spec)
+    out = {"type": kind, "timeout": _check_timeout(name, spec)}
     if kind == "command":
-        return Backend(name, kind, argv=_check_argv(name, raw), timeout=timeout)
-    url, model, env = _check_openai(name, raw)
-    return Backend(name, kind, url, model, env, timeout=timeout)
+        out["argv"] = list(_check_argv(name, spec))
+        return out
+    url, model, env = _check_openai(name, spec)
+    out.update(base_url=url, model=model)
+    if env is not None:
+        out["api_key_env"] = env
+    return out
 
 
-def load_config(path=None):
-    """Load backends from path, env NOCTIA_LOCALAI_CONFIG or the default file."""
+def _build(name, raw):
+    """Validate one backend entry and build it."""
+    spec = validate_backend(name, raw)
+    if spec["type"] == "command":
+        return Backend(name, "command", argv=tuple(spec["argv"]), timeout=spec["timeout"])
+    return Backend(name, "openai", spec["base_url"], spec["model"],
+                   spec.get("api_key_env"), timeout=spec["timeout"])
+
+
+def _resolve(path):
+    """Return the expanded config path."""
     path = path or os.environ.get("NOCTIA_LOCALAI_CONFIG") or DEFAULT_PATH
-    path = os.path.expanduser(str(path))
+    return os.path.expanduser(str(path))
+
+
+def _read_raw(path):
+    """Return the raw config dict, or an empty one if the file is missing."""
     if not os.path.exists(path):
-        return {}
+        return {"backends": {}}
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError) as exc:
         raise ConfigError(f"cannot read config: {exc}") from exc
-    backends = data.get("backends") if isinstance(data, dict) else None
-    if not isinstance(backends, dict) or set(data) != {"backends"}:
+    if not isinstance(data, dict) or set(data) != {"backends"} \
+            or not isinstance(data["backends"], dict):
         raise ConfigError("config must be an object with only a 'backends' object")
-    return {n: _build(n, raw) for n, raw in backends.items()}
+    return data
+
+
+_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def _locked(path):
+    """Hold a thread lock and a flock on <path>.lock (mode 0600)."""
+    os.makedirs(os.path.dirname(path) or ".", mode=0o700, exist_ok=True)
+    with _LOCK:
+        fd = os.open(f"{path}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
+
+
+def _write_atomic(path, data):
+    """Write data as JSON atomically, file mode 0600, directory 0700."""
+    folder = os.path.dirname(path) or "."
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=folder, prefix=".localai.")
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def save_backend(name, spec, path=None):
+    """Validate and store one backend in the config file."""
+    clean = validate_backend(name, spec)
+    path = _resolve(path)
+    with _locked(path):
+        data = _read_raw(path)
+        data["backends"][name] = clean
+        _write_atomic(path, data)
+
+
+def remove_backend(name, path=None):
+    """Remove a backend; return False if it was not present."""
+    path = _resolve(path)
+    with _locked(path):
+        data = _read_raw(path)
+        if name not in data["backends"]:
+            return False
+        del data["backends"][name]
+        _write_atomic(path, data)
+    return True
+
+
+def load_config(path=None):
+    """Load backends from path, env NOCTIA_LOCALAI_CONFIG or the default file."""
+    path = _resolve(path)
+    if not os.path.exists(path):
+        return {}
+    data = _read_raw(path)
+    return {n: _build(n, raw) for n, raw in data["backends"].items()}
 
 
 def public_view(backends):

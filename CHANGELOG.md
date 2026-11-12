@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-12
+
+### Added
+- Settings: `~/.claude/noctia/settings.json` with a dashboard Settings page (`/settings`) and the `/noctia:config` command. Keys: `dashboard.autostart`, `dashboard.port`, `dashboard.summaries`, `dashboard.retire_seconds`, `workflow.*` and `git.default_mode` / `git.default_coauthor`.
+- Local AI: backends added, tested and removed from the Settings page, and a per-agent access switch.
+- Dashboard: optional Haiku mission summaries (`dashboard.summaries`), one short sentence per brief, cached.
+- Dashboard: start and end time of each task in the timeline.
+- Agents: `fable` is selectable as an agent model (no agent uses it by default).
+
+### Changed
+- Dashboard: yellow and blue terminal theme.
+- Dashboard: Tree is the only view. Finished work leaves after `dashboard.retire_seconds` (default 10 s) instead of 10 minutes.
+- Git default mode in settings accepts `locked` or `ask` only. `auto` stays per project via `/noctia:git`.
+
+### Removed
+- Laya adapter (`localai/adapters/laya_route.py`).
+- Radial view of the dashboard and its graph script.
+
+### Fixed
+- Dashboard: usage tiles no longer vanish on reset.
+- Dashboard: the summary route no longer hangs the CPU.
+- Dashboard: the hidden SVG left by the radial view is removed.
+
 ## [0.7.0] - 2026-11-11
 
 ### Added
@@ -16,7 +39,6 @@ All notable changes to this project are documented in this file. The format foll
 - Dashboard: Agents page (`/agents`) to change an agent's model and enable or disable it.
 - Disabled agents are listed at session start; the chief does not delegate to them.
 - Dashboard: `--allow-host NAME` (repeatable, or `NOCTIA_DASHBOARD_ALLOW_HOSTS`) to accept a reverse-proxy hostname, HTTPS origins only.
-- Local AI: Laya adapter (`localai/adapters/laya_route.py`) as a `command` backend, and chief routing advice (agent and model choice, advisory, ignored below 0.6 confidence).
 - Local AI: `developer`, `reader` and `documenter` can call `list_local` and `ask_local`.
 - Dashboard: Tree view of the session (chief, agent types, task cards with elapsed time, actions and last action), with a Tree/Radial toggle. Finished work retires after 10 minutes.
 

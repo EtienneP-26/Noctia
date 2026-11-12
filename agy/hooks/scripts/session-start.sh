@@ -6,6 +6,9 @@ shopt -s nullglob nocaseglob
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=noctia-settings.sh
+. "$SCRIPT_DIR/noctia-settings.sh"
 
 # has_any GLOB...: succeed if at least one glob matches an existing path.
 has_any() {
@@ -81,11 +84,25 @@ except Exception:
   return 0
 }
 
+# step_state NAME: print "on" or "off" for the workflow.NAME setting.
+step_state() {
+  [ "$(noctia_setting "workflow.$1")" = true ] && echo on || echo off
+}
+
+# workflow_line: print the one-line status of the workflow steps from the settings.
+workflow_line() {
+  echo "Noctia workflow: pentest=$(step_state pentest) designer=$(step_state designer)" \
+    "legal=$(step_state legal) docs=$(step_state docs)" \
+    "(skip the steps that are off in /build)."
+}
+
 # build_context: assemble the full text injected into the session.
 build_context() {
   :
   echo
   disabled_agents
+  workflow_line
+  bash "$SCRIPT_DIR/dashboard-autostart.sh" 2>/dev/null || true
   echo "## Project scan"
   if project_is_empty; then
     echo "Empty directory: new project. Propose a minimal structure (tests, CI, docs, README) before coding."

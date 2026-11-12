@@ -18,6 +18,9 @@ GIT_OPTS='(^|[^[:alnum:]_.-])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:spa
 GIT_WRITE="${GIT_OPTS}(add|commit|push|tag)([[:space:];&|]|\$)"
 GIT_COMMIT="${GIT_OPTS}commit([[:space:];&|]|\$)"
 
+# shellcheck source=noctia-settings.sh
+source "$(dirname "$0")/noctia-settings.sh" 2>/dev/null || noctia_setting() { return 1; }
+
 PICKER_MARKER='Noctia: choose the git mode for this project'
 
 # decide DECISION REASON: print the PreToolUse permission decision as JSON. Reason must contain no quotes.
@@ -29,7 +32,15 @@ decide() {
 read_mode() {
   local mode=""
   [ -f "$STATE_FILE" ] && mode=$(tr -d '[:space:]' < "$STATE_FILE")
+  [ -f "$STATE_FILE" ] || mode=$(noctia_setting git.default_mode 2>/dev/null)
   case "$mode" in ask|auto) echo "$mode" ;; *) echo locked ;; esac
+}
+
+# default_coauthor: print the settings default answer (yes or no), or nothing for ask.
+default_coauthor() {
+  local d
+  d=$(noctia_setting git.default_coauthor 2>/dev/null)
+  case "$d" in yes|no) echo "$d" ;; esac
 }
 
 # input_has REGEX: succeed if the hook input matches the extended regex.
@@ -79,11 +90,67 @@ guard_state_file() {
   return 0
 }
 
+# deny_settings: refuse a change of the Noctia settings; only the user may change them.
+deny_settings() {
+  decide deny "Noctia: the settings are user-controlled. Do not edit settings.json, run settings.py set, run config-from-picker.sh or call the dashboard settings API. Ask the user to change them in the dashboard or with /noctia:config."
+  exit 0
+}
+
+# PROTECTED: the Noctia config files (settings, agents, local AI) as a path regex.
+PROTECTED='(noctia/(settings|agents)\.json|localai\.json)'
+
+# normalize_path PATH: expand ~ and $HOME, collapse //, /./ and /../ without touching the disk.
+normalize_path() {
+  local p=$1 prev=""
+  p=${p/#\~/$HOME}; p=${p//\$HOME/$HOME}; p=${p//\$\{HOME\}/$HOME}
+  while [ "$p" != "$prev" ]; do
+    prev=$p
+    p=$(sed -E 's#/+#/#g; s#/\./#/#g; s#/\.$##; s#/[^/]+/\.\.(/|$)#/#' <<<"$p")
+  done
+  printf '%s' "$p"
+}
+
+# protected_path PATH: succeed if the normalized PATH is a protected Noctia config file.
+protected_path() {
+  local p; p=$(normalize_path "$1")
+  grep -qE "${PROTECTED}\$" <<<"$p" && return 0
+  [ -n "${NOCTIA_LOCALAI_CONFIG:-}" ] && [ "$p" = "$(normalize_path "$NOCTIA_LOCALAI_CONFIG")" ]
+}
+
+# settings_write_command: succeed if NORM names a protected config file (also globbed) with a write-capable tool or redirect.
+settings_write_command() {
+  grep -qE "${PROTECTED}|(settings|agents|localai)\.[^[:space:]]*[?*[]|[?*[][^[:space:]]*(settings|agents|localai)\.j" <<<"$NORM" &&
+    grep -qE '>|(^|[^[:alnum:]_-])(tee|cp|mv|dd|truncate|install|ln|rsync|python[0-9.]*|perl|ruby|node|sponge)([^[:alnum:]_-]|$)|sed[[:space:]]+(-[^[:space:]]*i|--in-place)' <<<"$NORM"
+}
+
+# settings_api_call: succeed if the command mentions a config API and is not a plain read-only curl/wget GET.
+settings_api_call() {
+  grep -qE '/api/(settings|localai|agents)' <<<"$NORM" || return 1
+  grep -qE '^[[:space:]]*(curl|wget)[[:space:]]' <<<"$NORM" || return 0
+  grep -qE '(^|[^[:alnum:]_-])(python[0-9.]*|node|perl|ruby|nc|ncat|socat|bash|sh)([^[:alnum:]_-]|$)' <<<"$NORM" && return 0
+  grep -qE '(^|[[:space:]])(-[a-zA-Z]*[XdFTK]|--(data|post|form|json|upload|method|request|config)[a-z0-9-]*)' <<<"$NORM"
+}
+
+# guard_settings: refuse any attempt by the model to change the Noctia settings (Bash, Write, Edit).
+guard_settings() {
+  local path
+  if is_bash; then
+    read_only_command && return 0
+    grep -qE 'settings\.py[[:space:]]+set([[:space:]]|$)|config-from-picker\.sh' <<<"$NORM" && deny_settings
+    settings_write_command && deny_settings
+    settings_api_call && deny_settings
+  else
+    path=$(jq -r '.tool_input.file_path // empty' <<<"$INPUT" 2>/dev/null)
+    [ -n "$path" ] && protected_path "$path" && deny_settings
+  fi
+  return 0
+}
+
 # guard_coauthor: on git commit, the Co-Authored-By trailer must match the saved co-author answer.
 guard_coauthor() {
   local file="${CLAUDE_PROJECT_DIR:-$PWD}/.noctia/coauthor" answer="" has=1
   grep -qE "$GIT_COMMIT" <<<"$NORM" || return 0
-  [ -f "$file" ] && answer=$(tr -d '[:space:]' < "$file")
+  if [ -f "$file" ]; then answer=$(tr -d '[:space:]' < "$file"); else answer=$(default_coauthor); fi
   grep -qi 'Co-Authored-By:' <<<"$CMD" && has=0
   case "$answer:$has" in
     yes:0|no:1) return 0 ;;
@@ -125,10 +192,25 @@ picker_verdict() {
       else empty end' <<<"$INPUT" 2>/dev/null
 }
 
+# config_forged: succeed if a Noctia config question carries answers or annotations.
+config_forged() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -e 'def filled: . != null and . != {} and . != [] and . != "";
+      ([.tool_input.questions[]? | select((.question // "") | startswith("Noctia config:"))] | length) > 0
+      and ((.tool_input.answers | filled) or (.tool_input.annotations | filled))' <<<"$INPUT" >/dev/null 2>&1
+  else
+    input_has 'Noctia config:' && input_has '"(answers|annotations)"'
+  fi
+}
+
 # guard_picker: nobody but the user may answer the git mode picker, and its options are fixed.
 guard_picker() {
   local verdict
   input_has '"tool_name"[[:space:]]*:[[:space:]]*"AskUserQuestion"' || return 0
+  if config_forged; then
+    decide deny "Noctia: the config picker must be answered by the user."
+    exit 0
+  fi
   if command -v jq >/dev/null 2>&1; then
     verdict=$(picker_verdict)
   else
@@ -145,6 +227,7 @@ guard_picker() {
 main() {
   guard_picker
   guard_state_file
+  guard_settings
   guard_git_command
 }
 

@@ -1,11 +1,10 @@
-import { createGraph } from './graph.js';
-import { createTree } from './tree.js';
+import { createTree, setRetireMs } from './tree.js';
 import { createTimeline } from './timeline.js';
 import { renderTiles, renderWaves, openDrawer, closeDrawer } from './panels.js';
 
 const COLORS = {
-  chief: '#fcd34d', orchestrator: '#e879f9', developer: '#86efac', tester: '#67e8f9',
-  reader: '#93c5fd', documenter: '#e2e8f0', pentester: '#fca5a5', designer: '#fdba74', legal: '#a3e635',
+  chief: '#ffb800', orchestrator: '#ff6ac1', developer: '#a6e22e', tester: '#57c7ff',
+  reader: '#6c8cff', documenter: '#9aa59d', pentester: '#ff6c6b', designer: '#ffb86c', legal: '#f3f99d',
 };
 const $ = (id) => document.getElementById(id);
 let state, es, queued = false, synth = 0, seen, backends = [];
@@ -19,9 +18,7 @@ const getJSON = (url) => fetch(url).then((r) => r.json());
 const selectTask = (id) => select({ kind: 'task', task: state.tasks.get(id) }, id);
 /** Select an agent by name and show it in the drawer. */
 const selectAgent = (name) => select({ kind: 'agent', agent: state.agents.get(name), tasks: [...state.tasks.values()].filter((t) => t.agent === name) }, name);
-const graph = createGraph($('graph'), { onSelect: selectAgent });
 const tree = createTree($('tree'), { onSelectAgent: selectAgent, onSelectTask: selectTask });
-let view = 'tree';
 const timeline = createTimeline($('timeline'), { onSelect: selectTask });
 
 /** Record the selection and open the drawer. */
@@ -35,14 +32,14 @@ function freshState() {
   seen = new Set();
   const s = { agents: new Map(), links: new Map(), tasks: new Map(), selected: null,
     totals: { done: 0, total: 0, percent: 0, tokensIn: 0, tokensOut: 0, startTs: null, active: 0 },
-    local: { calls: new Map(), pending: [] }, backends };
+    local: { calls: new Map(), pending: [] }, backends, usage: state?.usage };
   state = s;
   ensureAgent('chief');
 }
 /** Get or create an agent node. */
 function ensureAgent(name) {
   if (!state.agents.has(name)) {
-    state.agents.set(name, { name, color: COLORS[name] || '#8b93a7', status: 'idle', task: null, taskPct: 0, briefs: 0, tokensIn: 0, tokensOut: 0 });
+    state.agents.set(name, { name, color: COLORS[name] || '#7f8c82', status: 'idle', task: null, taskPct: 0, briefs: 0, tokensIn: 0, tokensOut: 0 });
   }
   return state.agents.get(name);
 }
@@ -73,7 +70,16 @@ function uniqueId(base) {
   return id;
 }
 /** Task launched by the given Agent tool_use id, if any. */
+let sessionId = null, summaryOff = false;
 const byCall = (call) => call && [...state.tasks.values()].find((t) => t.call === call);
+/** Fetch a task's mission summary; retry every 15 s up to 8 tries, stop for good when disabled. */
+async function fetchSummary(t, sess, n = 1) {
+  if (summaryOff || state.tasks.get(t.id) !== t) return;
+  const r = await getJSON(`api/summary?session=${encodeURIComponent(sess)}&call=${encodeURIComponent(t.call)}`).catch(() => null);
+  if (r && r.enabled === false) { summaryOff = true; return; }
+  if (r && r.summary) { t.summary = r.summary; scheduleRender(); return; }
+  if (n < 8) setTimeout(() => fetchSummary(t, sess, n + 1), 15000);
+}
 /** Apply a brief event: create a running task and mark the agent working. */
 function onBrief(e, live) {
   const name = short(e.target), a = ensureAgent(name), text = e.text || '';
@@ -82,9 +88,10 @@ function onBrief(e, live) {
   state.links.set(name, link);
   const wave = e.task ? parseInt(e.task.split('·')[0].replace(/\D/g, ''), 10) || 0 : 0;
   state.tasks.set(id, { id, call: e.call || null, num: e.task || null, wave, agent: name, title: cleanTitle(text.split('\n')[0], id), status: 'running',
-    start: Date.parse(e.ts), end: null, toolCalls: 0, lastAction: null, model: e.model || null, tokens: e.tokens || null, brief: text, report: null });
+    start: Date.parse(e.ts), end: null, summary: null, toolCalls: 0, lastAction: null, model: e.model || null, tokens: e.tokens || null, brief: text, report: null });
   Object.assign(a, { status: 'working', task: id, taskPct: 0.5 });
   a.briefs++;
+  if (e.call) fetchSummary(state.tasks.get(id), sessionId);
   if (live) pulse('chief', name, 'brief');
 }
 /** Find the running task a report answers. */
@@ -127,18 +134,10 @@ function backendOf(text) {
   const m = /"backend"\s*:\s*"([^"]+)"/.exec(text || '');
   return m ? m[1] : null;
 }
-/** Parse a Laya answer into a decision, or null when it is not one. */
-function parseDecision(text) {
-  try {
-    const j = JSON.parse(text), a = j.agent || {}, m = j.model || {};
-    if (!a.choice && !m.choice) return null;
-    return { agent: a.choice || '?', agentConf: a.confidence, model: m.choice || '?', modelConf: m.confidence };
-  } catch (_) { return null; }
-}
 /** Record an ask_local call for its backend; wait for the matching result. */
 function onLocalCall(e, live) {
   const name = backendOf(e.text) || 'unknown';
-  const c = state.local.calls.get(name) || { name, count: 0, lastAnswer: null, lastDecision: null, lastTs: 0 };
+  const c = state.local.calls.get(name) || { name, count: 0, lastAnswer: null, lastTs: 0 };
   c.count++; c.lastTs = Date.parse(e.ts);
   state.local.calls.set(name, c);
   state.local.pending.push({ name, agent: e.agent });
@@ -150,22 +149,10 @@ function onLocalResult(e) {
   if (i < 0) return;
   const [p] = state.local.pending.splice(i, 1), c = state.local.calls.get(p.name);
   c.lastAnswer = e.text || '';
-  if (p.name === 'laya') c.lastDecision = parseDecision(e.text) || c.lastDecision;
 }
-/** Pulse on the visible view. */
+/** Pulse on the tree. */
 function pulse(from, to, kind) {
-  (view === 'tree' ? tree : graph).pulse(from, to, kind);
-}
-/** Show one view, update its toggle and remember the choice. */
-function setView(v, save) {
-  view = v === 'radial' ? 'radial' : 'tree';
-  $('tree').hidden = view !== 'tree';
-  $('graph').hidden = view !== 'radial';
-  document.querySelector('main').classList.toggle('view-tree', view === 'tree');
-  document.querySelectorAll('.view-toggle button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
-  if (save) try { localStorage.setItem('noctia-view', view); } catch (_) { /* ignore */ }
-  if (state) (view === 'tree' ? tree : graph).update(state);
-  if (view === 'tree') requestAnimationFrame(() => tree.relink?.());
+  tree.pulse(from, to, kind);
 }
 /** Recompute the task totals. */
 function recount() {
@@ -232,7 +219,7 @@ function scheduleRender() {
     renderTiles($('tiles'), state);
     renderWaves($('waves'), state, selectTask);
     renderLocalAi();
-    (view === 'tree' ? tree : graph).update(state);
+    tree.update(state);
     timeline.update(state);
   });
 }
@@ -241,6 +228,7 @@ async function openSession(id) {
   if (es) es.close();
   freshState();
   closeDrawer($('drawer'));
+  sessionId = id;
   const q = encodeURIComponent(id), buffer = [];
   let ready = false;
   es = new EventSource('api/stream?session=' + q);
@@ -264,6 +252,12 @@ function setLive(on) {
   d.classList.toggle('off', !on);
   d.textContent = on ? 'live' : 'offline';
 }
+/** Apply the tree retire delay from settings; 10 s when unavailable or invalid. */
+async function loadRetire() {
+  const s = await getJSON('api/settings').catch(() => null);
+  const v = s?.dashboard?.retire_seconds;
+  setRetireMs((Number.isInteger(v) && v >= 0 && v <= 3600 ? v : 10) * 1000);
+}
 /** Load session list and open the newest. */
 async function loadSessions() {
   const list = await getJSON('api/sessions'), sel = $('session');
@@ -273,9 +267,8 @@ async function loadSessions() {
 }
 $('session').onchange = (ev) => openSession(ev.target.value);
 $('drawer-close').onclick = () => { if (state) state.selected = null; closeDrawer($('drawer')); };
-document.querySelectorAll('.view-toggle button').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
 freshState();
-try { setView(localStorage.getItem('noctia-view'), false); } catch (_) { setView('tree', false); }
+loadRetire();
 loadSessions();
 loadUsage();
 loadLocalAi();

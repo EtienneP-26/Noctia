@@ -41,6 +41,14 @@ class AgentsTest(unittest.TestCase):
         self.assertEqual(len(old), len(new))
         self.assertEqual([new[i] for i in diff], ["model: haiku"])
 
+    def test_set_model_accepts_fable(self):
+        """The fable model is accepted on a temp agents dir."""
+        agents.set_model(self.dir, "legal", "fable")
+        items = {a["name"]: a for a in agents.list_agents(self.dir, self.settings)}
+        self.assertEqual(items["legal"]["model"], "fable")
+        with self.assertRaises(ValueError):
+            agents.set_model(self.dir, "legal", "gpt")
+
     def test_set_model_keeps_file_mode(self):
         """Rewritten agent file keeps its original mode."""
         p = self.dir / "legal.md"
@@ -87,6 +95,58 @@ class AgentsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             agents.set_enabled(self.dir, "../x", False, self.settings)
         self.assertFalse(self.settings.exists())
+
+
+class LocalAiTest(unittest.TestCase):
+    """set_localai tests on a temp agents dir."""
+
+    def setUp(self):
+        """Create two agents, one with a tools line and one without."""
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir)
+        head = "---\nname: %s\nmodel: haiku\n%s---\nbody\n"
+        (self.dir / "dev.md").write_text(head % ("dev", "tools: Read, Bash\n"))
+        (self.dir / "boss.md").write_text(head % ("boss", ""))
+
+    def state(self):
+        """Return the localai state of dev."""
+        return {a["name"]: a for a in agents.list_agents(self.dir)}["dev"]["localai"]
+
+    def test_enable_disable_idempotent(self):
+        """Enable and disable twice, other tools and body preserved."""
+        self.assertFalse(self.state())
+        for _ in range(2):
+            agents.set_localai(self.dir, "dev", True)
+            self.assertTrue(self.state())
+        text = (self.dir / "dev.md").read_text()
+        self.assertIn("tools: Read, Bash, " + ", ".join(agents.LOCALAI_TOOLS), text)
+        for _ in range(2):
+            agents.set_localai(self.dir, "dev", False)
+            self.assertFalse(self.state())
+        self.assertEqual((self.dir / "dev.md").read_text(),
+                         "---\nname: dev\nmodel: haiku\ntools: Read, Bash\n---\nbody\n")
+
+    def test_no_tools_line(self):
+        """Agent without tools line is None and refuses the toggle."""
+        items = {a["name"]: a for a in agents.list_agents(self.dir)}
+        self.assertIsNone(items["boss"]["localai"])
+        with self.assertRaises(ValueError):
+            agents.set_localai(self.dir, "boss", True)
+
+    def test_refuses_empty_tools_line(self):
+        """Removing local AI from a local-only tools line is refused, file unchanged."""
+        path = self.dir / "solo.md"
+        text = "---\nname: solo\nmodel: haiku\ntools: %s\n---\nbody\n"
+        path.write_text(text % ", ".join(agents.LOCALAI_TOOLS))
+        with self.assertRaises(ValueError):
+            agents.set_localai(self.dir, "solo", False)
+        self.assertEqual(path.read_text(), text % ", ".join(agents.LOCALAI_TOOLS))
+
+    def test_bad_name(self):
+        """Invalid or unknown names are refused."""
+        for bad in ("../x", "Dev", "nope"):
+            with self.assertRaises(ValueError):
+                agents.set_localai(self.dir, bad, True)
 
 
 if __name__ == "__main__":

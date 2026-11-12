@@ -5,8 +5,9 @@ import re
 import tempfile
 from pathlib import Path
 
-MODELS = {"haiku", "sonnet", "opus", "inherit"}
-NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+MODELS = {"haiku", "sonnet", "opus", "fable", "inherit"}
+LOCALAI_TOOLS = ("mcp__noctia-localai__list_local", "mcp__noctia-localai__ask_local")
+NAME_RE =re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def _settings_file(settings_path=None):
@@ -57,8 +58,16 @@ def _disabled(settings_path=None):
         return set()
 
 
+def _localai_state(meta):
+    """Return True/False if a tools line exists, None if it inherits all."""
+    if "tools" not in meta:
+        return None
+    tools = [t.strip() for t in meta["tools"].split(",")]
+    return all(t in tools for t in LOCALAI_TOOLS)
+
+
 def list_agents(agents_dir, settings_path=None):
-    """List agents with name, description, model, tools, enabled."""
+    """List agents with name, description, model, tools, enabled, localai."""
     off = _disabled(settings_path)
     result = []
     for f in sorted(Path(agents_dir).glob("*.md")):
@@ -70,6 +79,7 @@ def list_agents(agents_dir, settings_path=None):
             "model": meta.get("model", ""),
             "tools": [t.strip() for t in meta.get("tools", "").split(",") if t.strip()],
             "enabled": name not in off,
+            "localai": _localai_state(meta),
         })
     return result
 
@@ -103,6 +113,39 @@ def set_model(agents_dir, name, model):
             _atomic_write(path, "\n".join(lines).encode("utf-8"), mode)
             return
     raise ValueError(f"no model line in {name}")
+
+
+def _toggle_tools(value, enabled):
+    """Add or remove the local AI tools in a comma-separated tools value."""
+    tools = [t.strip() for t in value.split(",") if t.strip()]
+    if enabled:
+        tools += [t for t in LOCALAI_TOOLS if t not in tools]
+    else:
+        tools = [t for t in tools if t not in LOCALAI_TOOLS]
+        if not tools:
+            raise ValueError("removing local AI would leave the agent with no tools")
+    return ", ".join(tools)
+
+
+def set_localai(agents_dir, name, enabled):
+    """Add or remove the local AI tools on the frontmatter tools: line."""
+    if not isinstance(enabled, bool):
+        raise ValueError(f"enabled must be a bool: {enabled!r}")
+    path = _agent_path(agents_dir, name)
+    mode = os.stat(path).st_mode & 0o777
+    lines = path.read_bytes().decode("utf-8").split("\n")
+    if lines[0].rstrip("\r") != "---":
+        raise ValueError(f"no frontmatter in {name}")
+    for i in range(1, len(lines)):
+        if lines[i].rstrip("\r") == "---":
+            break
+        if lines[i].startswith("tools:"):
+            eol = "\r" if lines[i].endswith("\r") else ""
+            value = _toggle_tools(lines[i][6:], enabled)
+            lines[i] = f"tools: {value}{eol}"
+            _atomic_write(path, "\n".join(lines).encode("utf-8"), mode)
+            return
+    raise ValueError("agent inherits all tools")
 
 
 def set_enabled(agents_dir, name, enabled, settings_path=None):

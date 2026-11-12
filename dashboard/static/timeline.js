@@ -15,6 +15,44 @@ function fmtDuration(ms) {
   return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
 }
 
+const FR = "fr-FR";
+
+/** Format an epoch ms as "HH:MM", prefixed by "12 nov" when not today. */
+export function fmtClock(ms) {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString(FR, { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  return `${d.toLocaleDateString(FR, { day: "numeric", month: "short" }).replace(".", "")} ${time}`;
+}
+
+/** Full local date-time for tooltips. */
+export function fmtFull(ms) {
+  return new Date(ms).toLocaleString(FR, { dateStyle: "short", timeStyle: "medium", hour12: false });
+}
+
+/** Short duration: 42s, 7m, 1h05. */
+export function fmtShort(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Time span text: "14:02 → 14:09 · 7m", or "14:02 · running · 3m". */
+export function fmtSpan(t, now = Date.now()) {
+  if (!t.start) return "";
+  const running = t.end == null || t.status === "running";
+  const dur = fmtShort((running ? now : t.end) - t.start);
+  if (running) return `${fmtClock(t.start)} · running · ${dur}`;
+  return `${fmtClock(t.start)} → ${fmtClock(t.end)} · ${dur}`;
+}
+
+/** Tooltip text with full start and end date-times. */
+export function fmtSpanFull(t) {
+  if (!t.start) return "";
+  return `${fmtFull(t.start)}${t.end != null && t.status !== "running" ? " → " + fmtFull(t.end) : " → …"}`;
+}
+
 /** Return the end timestamp of a task (now if still running). */
 function endOf(t, now) {
   return t.end == null || t.status === "running" ? now : t.end;
@@ -80,7 +118,7 @@ function drawSegs(svg, tasks, lanes, x, now, colorOf, onSelect) {
   const rect = g.select("rect").classed("running", (d) => d.status === "running").style("fill", (d) => (d.status === "running" ? null : colorOf(d.agent)))
     .attr("y", (d) => lanes.indexOf(d.agent) * LANE_H + 4).attr("height", LANE_H - 8);
   (reducedMotion() ? rect : rect.transition().duration(300)).attr("x", (d) => Math.max(LABEL_W, x(d.start))).attr("width", w);
-  rect.select("title").text((d) => `${d.id}: ${d.title} (${fmtDuration(endOf(d, now) - d.start)})`);
+  rect.select("title").text((d) => `${d.id}: ${d.title} (${fmtDuration(endOf(d, now) - d.start)})\n${fmtSpan(d, now)}\n${fmtSpanFull(d)}`);
   g.select("text").attr("x", (d) => Math.max(LABEL_W, x(d.start)) + 6).attr("y", (d) => lanes.indexOf(d.agent) * LANE_H + LANE_H / 2)
     .text((d) => (w(d) > d.id.length * 7 + 12 ? d.id : ""));
 }
@@ -89,8 +127,8 @@ function drawSegs(svg, tasks, lanes, x, now, colorOf, onSelect) {
 function addStripes(svg) {
   const p = svg.append("defs").append("pattern").attr("id", "stripes").attr("width", 8).attr("height", 8)
     .attr("patternUnits", "userSpaceOnUse").attr("patternTransform", "rotate(45)");
-  p.append("rect").attr("width", 8).attr("height", 8).attr("fill", "#8b7cff");
-  p.append("rect").attr("width", 4).attr("height", 8).attr("fill", "#b8aeff");
+  p.append("rect").attr("width", 8).attr("height", 8).attr("fill", "#ffb800");
+  p.append("rect").attr("width", 4).attr("height", 8).attr("fill", "#8a6400");
 }
 
 /** Build the 1h / 6h / All segmented control; calls pick(mode) on click. */
@@ -121,7 +159,7 @@ export function createTimeline(el, { onSelect }) {
   /** Draw every layer for the visible tasks. */
   function draw(tasks, x, now) {
     const lanes = [...new Set(tasks.map((t) => t.agent))];
-    const colorOf = (n) => (state.agents.get(n) || {}).color || "#888";
+    const colorOf = (n) => (state.agents.get(n) || {}).color || "#7f8c82";
     const width = el.clientWidth || 600, height = lanes.length * LANE_H + AXIS_H;
     svg.attr("height", height).attr("viewBox", `0 0 ${width} ${height}`);
     drawLabels(svg, lanes, colorOf);

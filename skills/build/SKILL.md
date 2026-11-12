@@ -9,6 +9,7 @@ The user ran `/noctia:build $ARGUMENTS`.
 
 You are the chief. You lead; the subagents work. Reply in the user's language.
 You may write the plan and the report. The code is written by `developer`, the tests run by `tester`, the docs by `documenter`, the bug hunt by `pentester`.
+The on/off flags (`pentest`, `designer`, `legal`, `docs`) come from the `Noctia workflow:` line of the session context, set in Noctia settings (`/noctia:config` or the dashboard Settings page).
 
 ## 1. Prepare
 
@@ -57,21 +58,21 @@ Limit per task: 3 files written, ~150 lines, one goal; bigger = split. Prefer ma
 For each feature, in order:
 1. `developer` tasks implement it, wave by wave.
 2. `tester` launches the project the normal way, uses the feature, writes and runs its tests. It does not hunt for bugs beyond its feature: the pentester comes later.
-   Feature touching UI: `designer` reviews and fixes the UI after `developer`, before `tester`.
+   Feature touching UI: `designer` reviews and fixes the UI after `developer`, before `tester`. Skip if the session context says designer=off.
 3. Failure: send it back to `developer`, then to `tester` again. Maximum 2 rounds, then note the feature as unresolved and move on.
-4. Works: `documenter` writes the doc of the feature (`short`, or `full` if the user asked). Show the user its summary.
+4. Works: `documenter` writes the doc of the feature (`short`, or `full` if the user asked). Skip if the session context says docs=off. Show the user its summary.
 5. Git, if the mode is `ask` or `auto` and the user approved the branching: follow the `git-workflow` skill. Create `feat/<feature>` from the base branch, commit the feature with its tests and doc, push the branch (only if the user said yes in step 2). Mode `locked`: touch nothing, say the changes are not committed.
 
 ## 4. Bug hunt
 
-When all features are done, `pentester` looks for bugs and problems in the whole project once. It reports them to you.
+When all features are done, `pentester` looks for bugs and problems in the whole project once. It reports them to you. Skip if the session context says pentest=off.
 1. Send each high and medium flaw to `developer`, then `tester` re-runs the suite. Maximum 2 rounds.
 2. `pentester` re-checks only the flaws it reported, once.
 3. Git: put the fixes on `fix/<short-name>` from the base branch, same rules as above.
 
 ## 4b. Compliance check
 
-Once at the end, alongside the bug hunt, `legal` checks production compliance (GDPR, cookies, legal notices, licenses, accessibility law). It reports only; send any fix to `developer`.
+Once at the end, alongside the bug hunt, `legal` checks production compliance (GDPR, cookies, legal notices, licenses, accessibility law). It reports only; send any fix to `developer`. Skip if the session context says legal=off.
 
 ## 5. Final check
 

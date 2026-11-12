@@ -10,7 +10,7 @@
 <body class="live-page">
 <header class="bar">
   <h1 class="brand">Noctia <small>control room</small></h1>
-  <nav class="nav" aria-label="Pages"><a href="/" aria-current="page">Live</a><a href="/agents">Agents</a></nav>
+  <nav class="nav" aria-label="Pages"><a href="/" aria-current="page">Live</a><a href="/agents">Agents</a><a href="/settings">Settings</a></nav>
   <div class="bar-end">
     <select id="session" aria-label="Session"></select>
     <span id="live" class="off" role="status" title="Live connection">offline</span>
@@ -19,14 +19,7 @@
 <section id="tiles" aria-label="Summary"></section>
 <main>
   <section class="stage" aria-label="Agent graph">
-    <div class="stage-head">
-      <div class="view-toggle" role="group" aria-label="View">
-        <button type="button" data-view="tree" aria-pressed="true">Tree</button>
-        <button type="button" data-view="radial" aria-pressed="false">Radial</button>
-      </div>
-    </div>
     <div id="tree"></div>
-    <svg id="graph" viewBox="0 0 800 520" role="img" aria-label="Agent graph" hidden></svg>
   </section>
   <aside id="waves" aria-label="Waves and tasks"></aside>
 </main>

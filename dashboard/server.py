@@ -14,13 +14,17 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 try:
-    from dashboard import agents, transcript
+    from dashboard import agents, localai_api, settings, transcript
 except ImportError:  # run as a script: dashboard/ is sys.path[0]
     import agents
+    import localai_api
+    import settings
     import transcript
 
 STATIC = Path(__file__).resolve().parent / "static"
 SESSION_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+SUMMARY_CACHE = Path.home() / ".claude" / "noctia" / "summaries.json"
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
          ".css": "text/css; charset=utf-8"}
 POLL, HEARTBEAT = 0.5, 5
@@ -32,7 +36,9 @@ _LOCALAI_CACHE = {}
 _LOCALAI_LOCK = threading.Lock()
 MAX_BODY = 4096
 MAX_USAGE = 4096
-AGENT_POST_RE = re.compile(r"^/api/agents/([A-Za-z0-9_-]{1,64})/(model|enabled)$")
+AGENT_POST_RE = re.compile(r"^/api/agents/([A-Za-z0-9_-]{1,64})/(model|enabled|localai)$")
+LOCALAI_GET_RE = re.compile(r"^/api/localai/([^/]{1,64})$")
+LOCALAI_POST_RE = re.compile(r"^/api/localai/([a-z0-9_-]{1,32})(/delete|/test)?$")
 
 
 HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$")
@@ -60,6 +66,32 @@ def list_sessions(root):
         title = next((e["text"] for e in events if e["kind"] == "user" and e["text"]), "")
         out.append({"id": path.stem, "mtime": path.stat().st_mtime, "title": title[:80]})
     return sorted(out, key=lambda s: s["mtime"], reverse=True)
+
+
+_BRIEFS = {}
+MAX_BRIEFS = 32
+
+
+def _remember_briefs(session, value):
+    """Store value in _BRIEFS, dropping the oldest entries beyond MAX_BRIEFS."""
+    _BRIEFS.pop(session, None)
+    _BRIEFS[session] = value
+    while len(_BRIEFS) > MAX_BRIEFS:
+        _BRIEFS.pop(next(iter(_BRIEFS)))
+
+
+def session_briefs(root, session):
+    """Return {call: brief text}, re-parsed only when the session files change."""
+    files = session_files(root, session)
+    stamp = [(str(p), p.stat().st_mtime_ns) for p in files]
+    cached = _BRIEFS.get(session)
+    if cached is None or cached[0] != stamp:
+        briefs = {e["call"]: e["text"] for e in session_events(root, session)
+                  if e["kind"] == "brief" and e.get("call")}
+        cached = (stamp, briefs)
+        if files:
+            _remember_briefs(session, cached)
+    return cached[1]
 
 
 def session_events(root, session):
@@ -211,6 +243,7 @@ class Handler(BaseHTTPRequestHandler):
     port = 0
     agents_dir = AGENTS_DIR
     allow_hosts = frozenset()
+    summarizer = None
     streams = {"n": 0, "lock": threading.Lock()}
 
     def log_message(self, *args):
@@ -257,45 +290,83 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         if url.path in ("/", "/index.html"):
             return self._static("index.html")
+        if url.path == "/settings":
+            return self._static("settings.html")
         if url.path == "/agents":
             return self._static("agents.html")
         if url.path == "/api/usage":
             return self._json(read_usage())
         if url.path == "/api/localai":
             return self._json(localai_info())
+        if url.path == "/api/settings":
+            return self._json(settings.load())
+        if LOCALAI_GET_RE.match(url.path):
+            return self._localai_get(LOCALAI_GET_RE.match(url.path).group(1))
         if url.path == "/api/agents":
             return self._json(agents.list_agents(self.agents_dir))
         if url.path.startswith("/static/"):
             return self._static(url.path[len("/static/"):])
         if url.path == "/api/sessions":
             return self._json(list_sessions(self.root))
+        if url.path == "/api/summary":
+            return self._summary_route(url)
         if url.path in ("/api/events", "/api/stream"):
             return self._session_route(url)
         self._send(404, b"not found")
 
     def do_POST(self):
-        """Validate origin, content type and body, then update an agent."""
-        match = AGENT_POST_RE.match(urlparse(self.path).path)
+        """Validate origin, content type and body, then dispatch the update."""
+        path = urlparse(self.path).path
         origin = self.headers.get("Origin")
         if not self._host_ok() or origin is None or not self._origin_ok(origin):
             return self._send(403, b"forbidden")
-        if not match:
+        agent, backend = AGENT_POST_RE.match(path), LOCALAI_POST_RE.match(path)
+        if not (agent or backend or path == "/api/settings"):
             return self._send(404, b"not found")
         body = self._read_body()
         if body is None:
             return
-        name, field = match.groups()
         try:
-            if field == "model":
-                agents.set_model(self.agents_dir, name, body.get("model"))
-            elif isinstance(body.get("enabled"), bool):
-                agents.set_enabled(self.agents_dir, name, body["enabled"])
-            else:
-                raise ValueError("enabled must be a boolean")
+            if agent:
+                return self._agent_post(*agent.groups(), body)
+            if backend:
+                return self._localai_post(*backend.groups(), body)
+            self._json(settings.save(body))
         except ValueError as exc:
-            return self._send(400, json.dumps({"error": str(exc)}).encode(), "application/json")
+            self._send(400, json.dumps({"error": str(exc)}).encode(), "application/json")
+
+    def _agent_post(self, name, field, body):
+        """Apply a model, enabled or localai update and reply with the agent."""
+        if field == "model":
+            agents.set_model(self.agents_dir, name, body.get("model"))
+        elif not isinstance(body.get("enabled"), bool):
+            raise ValueError("enabled must be a boolean")
+        elif field == "enabled":
+            agents.set_enabled(self.agents_dir, name, body["enabled"])
+        else:
+            agents.set_localai(self.agents_dir, name, body["enabled"])
         found = [a for a in agents.list_agents(self.agents_dir) if a.get("name") == name]
         self._json(found[0] if found else {})
+
+    def _localai_get(self, name):
+        """Reply with one backend's editable spec: 400 bad name, 404 unknown."""
+        try:
+            result = localai_api.spec(name)
+        except ValueError as exc:
+            return self._send(400, json.dumps({"error": str(exc)}).encode(), "application/json")
+        if result is None:
+            return self._send(404, b"not found")
+        self._json(result)
+
+    def _localai_post(self, name, action, body):
+        """Save, delete or test one backend, invalidating the status cache."""
+        if action == "/test":
+            found, result = localai_api.test(name)
+            return self._json(result) if found else self._send(404, b"unknown backend")
+        result = localai_api.delete(name) if action else localai_api.save(name, body)
+        with _LOCALAI_LOCK:
+            _LOCALAI_CACHE.clear()
+        self._json(result)
 
     def _read_body(self):
         """Return the JSON object body, or send an error and return None."""
@@ -326,6 +397,20 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/events":
             return self._json(session_events(self.root, ids[0]))
         self._stream(ids[0])
+
+    def _summary_route(self, url):
+        """Validate session and call, then answer with the cached summary or null."""
+        if self.summarizer is None:
+            return self._json({"summary": None, "enabled": False})
+        query = parse_qs(url.query)
+        session, call = query.get("session", [""])[0], query.get("call", [""])[0]
+        if not (ID_RE.match(session) and ID_RE.match(call)):
+            return self._send(400, b"bad session or call")
+        brief = session_briefs(self.root, session).get(call)
+        if brief is None:
+            return self._send(404, b"unknown call")
+        text = self.summarizer.get(f"{session}:{call}", brief)
+        self._json({"summary": text, "enabled": True})
 
     def _static(self, name):
         """Serve a file located inside dashboard/static only."""
@@ -370,13 +455,14 @@ class Handler(BaseHTTPRequestHandler):
             return
 
 
-def make_server(root, port=7777, agents_dir=None, allow_hosts=()):
+def make_server(root, port=7777, agents_dir=None, allow_hosts=(), summarizer=None):
     """Create a ThreadingHTTPServer bound to 127.0.0.1 only."""
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
     handler = type("BoundHandler", (Handler,), {"root": Path(root), "port": server.server_port,
                     "agents_dir": Path(agents_dir or AGENTS_DIR),
                     "allow_hosts": frozenset(allow_hosts),
+                    "summarizer": summarizer,
                     "streams": {"n": 0, "lock": threading.Lock()}})
     server.RequestHandlerClass = handler
     return server
@@ -393,20 +479,45 @@ def parse_hosts(values):
     return hosts
 
 
+def build_summarizer(enabled):
+    """Return a Summarizer when opted in (flag or env), else None."""
+    if not (enabled or os.environ.get("NOCTIA_DASHBOARD_SUMMARIES") == "1"):
+        return None
+    try:
+        from dashboard.summary import Summarizer
+    except ImportError:
+        from summary import Summarizer
+    return Summarizer(SUMMARY_CACHE)
+
+
+def pick_port(cli, configured):
+    """Return the port by priority CLI > env NOCTIA_DASHBOARD_PORT > settings."""
+    if cli is not None:
+        return cli
+    return int(os.environ.get("NOCTIA_DASHBOARD_PORT") or configured)
+
+
 def main():
     """Parse CLI args and serve forever."""
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--port", type=int, default=7777)
+    ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--project", default=".")
     ap.add_argument("--agents-dir", default=None)
     ap.add_argument("--allow-host", action="append", default=[], metavar="NAME")
+    ap.add_argument("--summaries", action="store_true", help="enable AI brief summaries")
     args = ap.parse_args()
     env = [h for h in os.environ.get("NOCTIA_DASHBOARD_ALLOW_HOSTS", "").split(",") if h.strip()]
     try:
         hosts = parse_hosts(args.allow_host + env)
     except ValueError as exc:
         ap.error(str(exc))
-    server = make_server(transcripts_dir(args.project), args.port, args.agents_dir, hosts)
+    conf = settings.load()["dashboard"]
+    try:
+        port = pick_port(args.port, conf["port"])
+    except ValueError:
+        ap.error("invalid port")
+    server = make_server(transcripts_dir(args.project), port, args.agents_dir, hosts,
+                         build_summarizer(args.summaries or conf["summaries"]))
     print(f"Dashboard on http://127.0.0.1:{server.server_port}")
     try:
         server.serve_forever()

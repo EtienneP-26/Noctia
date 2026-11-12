@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Noctia réglages</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/settings.css">
+</head>
+<body class="settings-page">
+<header class="bar">
+  <h1 class="brand">Noctia <small>control room</small></h1>
+  <nav class="nav" aria-label="Pages"><a href="/">Live</a><a href="/agents">Agents</a><a href="/settings" aria-current="page">Settings</a></nav>
+</header>
+<main class="st-main">
+  <section class="st-section" aria-labelledby="h-dash">
+    <h2 id="h-dash" class="st-head">Dashboard</h2>
+    <div class="st-row"><label id="l-autostart">Démarrage automatique</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-autostart" class="st-switch" data-section="dashboard" data-key="autostart"></button></div>
+    <div class="st-row"><label for="f-port">Port (1024-65535)</label>
+      <input id="f-port" class="st-num" type="number" min="1024" max="65535" step="1" inputmode="numeric" data-section="dashboard" data-key="port"></div>
+    <p class="st-hint">Port et démarrage automatique : pris en compte au prochain démarrage.</p>
+    <div class="st-row"><label id="l-summaries">Résumés Haiku</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-summaries" class="st-switch" data-section="dashboard" data-key="summaries"></button></div>
+    <div class="st-row"><label for="f-retire">Délai de retrait (secondes)</label>
+      <select id="f-retire" data-section="dashboard" data-key="retire_seconds" data-type="int">
+        <option>0</option><option>5</option><option>10</option><option>30</option><option>60</option><option>300</option></select></div>
+  </section>
+  <section class="st-section" aria-labelledby="h-wf">
+    <h2 id="h-wf" class="st-head">Workflow</h2>
+    <p class="st-hint">Étapes de /noctia:build</p>
+    <div class="st-row"><label id="l-pentest">Pentest</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-pentest" class="st-switch" data-section="workflow" data-key="pentest"></button></div>
+    <div class="st-row"><label id="l-designer">Designer</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-designer" class="st-switch" data-section="workflow" data-key="designer"></button></div>
+    <div class="st-row"><label id="l-legal">Légal</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-legal" class="st-switch" data-section="workflow" data-key="legal"></button></div>
+    <div class="st-row"><label id="l-docs">Documentation</label>
+      <button type="button" role="switch" aria-checked="false" aria-labelledby="l-docs" class="st-switch" data-section="workflow" data-key="docs"></button></div>
+  </section>
+  <section class="st-section" aria-labelledby="h-git">
+    <h2 id="h-git" class="st-head">Git par défaut</h2>
+    <div class="st-row"><span id="l-mode">Mode par défaut</span>
+      <div class="st-seg" role="radiogroup" aria-labelledby="l-mode" data-section="git" data-key="default_mode">
+        <button type="button" role="radio" aria-checked="false" data-value="locked">locked</button><button type="button" role="radio" aria-checked="false" data-value="ask">ask</button></div></div>
+    <p class="st-hint">auto se règle projet par projet avec /noctia:git</p>
+    <div class="st-row"><span id="l-co">Co-auteur</span>
+      <div class="st-seg" role="radiogroup" aria-labelledby="l-co" data-section="git" data-key="default_coauthor">
+        <button type="button" role="radio" aria-checked="false" data-value="ask">ask</button><button type="button" role="radio" aria-checked="false" data-value="yes">yes</button><button type="button" role="radio" aria-checked="false" data-value="no">no</button></div></div>
+  </section>
+  <section id="localai"></section>
+  <p id="st-status" class="st-status" role="status" aria-live="polite"></p>
+</main>
+<script src="/static/settings.js"></script>
+<script type="module" src="/static/localai.js"></script>
+</body>
+</html>

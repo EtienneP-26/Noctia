@@ -2,6 +2,7 @@
 import http.client
 import json
 import os
+import sys
 import tempfile
 import threading
 import unittest
@@ -322,6 +323,193 @@ class LocalAiTest(ServerTest):
         got = self.api("{not json")
         self.assertEqual(got["backends"], [])
         self.assertIn("error", got)
+
+
+class SettingsApiTest(ServerTest):
+    """Tests for the settings, backend management and agent localai routes."""
+
+    def setUp(self):
+        """Point settings and the localai config at temp files."""
+        super().setUp()
+        env = mock.patch.dict(os.environ, {
+            "NOCTIA_SETTINGS": str(self.root / "s.json"),
+            "NOCTIA_LOCALAI_CONFIG": str(self.root / "l.json")})
+        env.start()
+        self.addCleanup(env.stop)
+        server._LOCALAI_CACHE.clear()
+
+    def cmd_spec(self, text="OK"):
+        """Return a command backend spec printing a JSON text answer."""
+        code = f"import json;print(json.dumps({{'text':'{text}'}}))"
+        return json.dumps({"type": "command", "argv": [sys.executable, "-c", code],
+                           "timeout": 10})
+
+    def oai_spec(self, env="NOCTIA_LOCALAI_K"):
+        """Return an openai backend spec (unreachable port) as JSON."""
+        return json.dumps({"type": "openai", "base_url": "http://127.0.0.1:1/v1", "model": "m",
+                           "api_key_env": env, "timeout": 2})
+
+    def write_cmd(self, name, argv):
+        """Write a command backend by hand into the localai config file."""
+        path = self.root / "l.json"
+        data = json.loads(path.read_text()) if path.exists() else {"backends": {}}
+        data["backends"][name] = {"type": "command", "argv": argv, "timeout": 5}
+        path.write_text(json.dumps(data))
+        server._LOCALAI_CACHE.clear()
+
+    def test_settings_get_post(self):
+        """GET returns defaults; POST merges and returns the full settings."""
+        self.assertEqual(json.loads(self.get("/api/settings")[1])["dashboard"]["port"], 7777)
+        code, body = self.post("/api/settings", '{"dashboard": {"port": 8123}}')
+        self.assertEqual(code, 200)
+        full = json.loads(body)
+        self.assertEqual(full["dashboard"]["port"], 8123)
+        self.assertIn("git", full)
+
+    def test_settings_bad(self):
+        """Invalid settings give 400 with a message."""
+        code, body = self.post("/api/settings", '{"dashboard": {"port": 1}}')
+        self.assertEqual(code, 400)
+        self.assertIn("port", json.loads(body)["error"])
+        self.assertEqual(self.post("/api/settings", '{"nope": {}}')[0], 400)
+
+    def test_settings_csrf(self):
+        """A bad Origin on POST /api/settings is rejected."""
+        self.assertEqual(self.post("/api/settings", "{}", origin="http://evil.com")[0], 403)
+        self.assertEqual(self.post("/api/settings", "{}", origin=None)[0], 403)
+
+    def test_backend_spec_get(self):
+        """GET /api/localai/<name> returns the spec with env var name; 404; 400."""
+        self.write_cmd("box", ["/bin/x", "--a"])
+        oai = {"type": "openai", "base_url": "http://localhost:1/v1", "model": "m",
+               "api_key_env": "NOCTIA_LOCALAI_KEY", "timeout": 7}
+        self.assertEqual(self.post("/api/localai/oa", json.dumps(oai))[0], 200)
+        got = json.loads(self.get("/api/localai/box")[1])
+        self.assertEqual(got["argv"], ["/bin/x", "--a"])
+        got = json.loads(self.get("/api/localai/oa")[1])
+        self.assertEqual((got["api_key_env"], got["model"]), ("NOCTIA_LOCALAI_KEY", "m"))
+        self.assertEqual(self.get("/api/localai/none")[0], 404)
+        self.assertEqual(self.get("/api/localai/Bad%20Name")[0], 400)
+
+    def test_backend_save_delete(self):
+        """Save shows in /api/localai (cache invalidated); delete removes it."""
+        self.assertEqual(json.loads(self.get("/api/localai")[1])["backends"], [])
+        self.assertEqual(self.post("/api/localai/box", self.oai_spec())[0], 200)
+        names = [b["name"] for b in json.loads(self.get("/api/localai")[1])["backends"]]
+        self.assertEqual(names, ["box"])
+        self.assertEqual(self.post("/api/localai/box/delete", "{}")[0], 200)
+        self.assertEqual(json.loads(self.get("/api/localai")[1])["backends"], [])
+
+    def test_backend_bad(self):
+        """Bad spec gives 400; bad name gives 404."""
+        code, body = self.post("/api/localai/box", '{"type": "x"}')
+        self.assertEqual(code, 400)
+        self.assertIn("error", json.loads(body))
+        self.assertEqual(self.post("/api/localai/BAD", self.oai_spec())[0], 404)
+
+    def test_backend_test_openai_unreachable(self):
+        """Test endpoint on an openai backend runs and reports ok false; unknown gives 404."""
+        self.post("/api/localai/oa", self.oai_spec())
+        code, body = self.post("/api/localai/oa/test", "{}")
+        res = json.loads(body)
+        self.assertEqual((code, res["ok"]), (200, False))
+        self.assertLessEqual(len(res["error"]), 200)
+        self.assertEqual(self.post("/api/localai/nope/test", "{}")[0], 404)
+
+    def test_command_rejected_via_api(self):
+        """Saving a command backend is refused; an existing one cannot be overwritten."""
+        code, body = self.post("/api/localai/box", self.cmd_spec())
+        self.assertEqual(code, 400)
+        self.assertIn("localai.json", json.loads(body)["error"])
+        self.write_cmd("hand", ["/bin/x"])
+        self.assertEqual(self.post("/api/localai/hand", self.oai_spec())[0], 400)
+        self.assertEqual(self.post("/api/localai/hand", self.cmd_spec())[0], 400)
+
+    def test_command_not_testable(self):
+        """/test on a command backend is refused and nothing runs."""
+        marker = self.root / "ran"
+        self.write_cmd("hand", [sys.executable, "-c", f"open({str(marker)!r}, 'w')"])
+        self.assertNotEqual(self.post("/api/localai/hand/test", "{}")[0], 200)
+        self.assertFalse(marker.exists())
+
+    def test_command_delete_allowed(self):
+        """A command backend written by hand can be deleted from the API."""
+        self.write_cmd("hand", ["/bin/x"])
+        self.assertEqual(self.post("/api/localai/hand/delete", "{}")[0], 200)
+        self.assertEqual(json.loads(self.get("/api/localai")[1])["backends"], [])
+
+    def test_api_key_env_rule(self):
+        """api_key_env must match NOCTIA_LOCALAI_*; others give 400."""
+        for env in ("HOME", "AWS_SECRET_ACCESS_KEY", "NOCTIA_LOCALAI_", "noctia_localai_x"):
+            spec = self.oai_spec(env)
+            self.assertEqual(self.post("/api/localai/oa", spec)[0], 400, env)
+        self.assertEqual(self.post("/api/localai/oa", self.oai_spec("NOCTIA_LOCALAI_A1"))[0], 200)
+
+    def test_delete_bad_config(self):
+        """Delete on an invalid config file gives 400, not a dropped connection."""
+        (self.root / "l.json").write_text("{not json")
+        self.assertEqual(self.post("/api/localai/x/delete", "{}")[0], 400)
+
+    def test_agent_localai(self):
+        """POST localai toggles tools; bad value or no tools line gives 400."""
+        (self.agents / "dev.md").write_text("---\nname: dev\ntools: Read\n---\nbody\n")
+        self.assertEqual(self.post("/api/agents/dev/localai", '{"enabled": true}')[0], 200)
+        self.assertIn("localai", (self.agents / "dev.md").read_text().lower())
+        self.assertEqual(self.post("/api/agents/dev/localai", '{"enabled": 1}')[0], 400)
+        (self.agents / "dev.md").write_text("---\nname: dev\n---\nbody\n")
+        self.assertEqual(self.post("/api/agents/dev/localai", '{"enabled": true}')[0], 400)
+
+    def test_pick_port(self):
+        """Port priority is CLI, then env, then settings."""
+        self.assertEqual(server.pick_port(9000, 8000), 9000)
+        with mock.patch.dict(os.environ, {"NOCTIA_DASHBOARD_PORT": "9100"}):
+            self.assertEqual(server.pick_port(None, 8000), 9100)
+        with mock.patch.dict(os.environ, {"NOCTIA_DASHBOARD_PORT": ""}):
+            self.assertEqual(server.pick_port(None, 8000), 8000)
+
+
+class SummaryTest(ServerTest):
+    """GET /api/summary with a fake summarizer."""
+
+    def add_brief(self):
+        """Append one Agent brief to the main session."""
+        block = {"type": "tool_use", "id": "toolu_1", "name": "Agent",
+                 "input": {"description": "d", "prompt": "do it", "subagent_type": "dev"}}
+        with self.main.open("a") as fh:
+            fh.write(rec("assistant", [block], "2026-01-01T00:00:03Z"))
+
+    def enable(self):
+        """Add a brief and install a fake summarizer on the running handler."""
+        self.add_brief()
+        fake = mock.Mock()
+        fake.get.return_value = "short"
+        self.srv.RequestHandlerClass.summarizer = fake
+        return fake
+
+    def test_disabled(self):
+        """Without a summarizer the answer is disabled and null."""
+        status, body = self.get("/api/summary?session=abc-1&call=toolu_1")
+        self.assertEqual((status, json.loads(body)), (200, {"summary": None, "enabled": False}))
+
+    def test_bad_params(self):
+        """Bad charset or missing params give 400."""
+        self.enable()
+        for q in ("session=abc-1&call=a/b", "session=abc-1", "call=x", "session=a.1&call=x",
+                  "session=abc-1&call=" + "a" * 129):
+            self.assertEqual(self.get("/api/summary?" + q)[0], 400, q)
+
+    def test_unknown_call(self):
+        """An unknown call gives 404."""
+        self.enable()
+        self.assertEqual(self.get("/api/summary?session=abc-1&call=nope")[0], 404)
+
+    def test_enabled(self):
+        """The fake summary is returned, keyed by session:call."""
+        fake = self.enable()
+        status, body = self.get("/api/summary?session=abc-1&call=toolu_1")
+        self.assertEqual((status, json.loads(body)), (200, {"summary": "short", "enabled": True}))
+        self.assertEqual(fake.get.call_args.args[0], "abc-1:toolu_1")
+        self.assertIn("do it", fake.get.call_args.args[1])
 
 
 if __name__ == "__main__":

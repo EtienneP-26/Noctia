@@ -1,9 +1,11 @@
 /** Done work older than this (ms after its end) leaves the live views. */
-export const RETIRE_MS = 10 * 60 * 1000;
-const AGING_MS = 2 * 60 * 1000;
+let retireMs = 10 * 1000;
+/** Share of the retire delay after which a done card starts to age. */
+const AGING_FRACTION = 0.8;
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ORDER = ['orchestrator', 'developer', 'designer', 'tester', 'reader', 'documenter', 'pentester', 'legal'];
 const KEEP_DONE = 3;
+const MAX_COLS = 4;
 const ms = (t) => (t == null ? null : new Date(t).getTime());
 
 /** Format a duration in ms as mm:ss. */
@@ -32,16 +34,21 @@ function visibleTasks(list, open) {
   return { shown: run.concat(open ? done : done.slice(0, KEEP_DONE)), extra: Math.max(0, done.length - KEEP_DONE) };
 }
 
-/** True when a task is running or ended less than RETIRE_MS ago. */
+/** Set the retire delay (ms) for finished work. */
+export function setRetireMs(delay) {
+  retireMs = delay;
+}
+
+/** True when a task is running or ended less than the retire delay ago. */
 export function isLive(t, now = Date.now()) {
-  return t.status === 'running' || now - ms(t.end) < RETIRE_MS;
+  return t.status === 'running' || now - ms(t.end) < retireMs;
 }
 
 /** Collapse and fade an exiting card, then remove it. */
 function leave(sel) {
   if (reduced()) return sel.remove();
   sel.style('overflow', 'hidden').style('height', function () { return `${this.offsetHeight}px`; })
-    .transition().duration(400).style('opacity', 0).style('height', '0px')
+    .transition().duration(200).style('opacity', 0).style('height', '0px')
     .style('padding-top', '0px').style('padding-bottom', '0px').style('margin-top', '0px').style('margin-bottom', '0px')
     .style('border-width', '0px').remove();
 }
@@ -60,11 +67,11 @@ function buildTask(sel) {
 
 /** Fill a task card from its data. */
 function fillTask(sel) {
-  const aging = (t) => t.status !== 'running' && Date.now() - ms(t.end) > RETIRE_MS - AGING_MS;
+  const aging = (t) => t.status !== 'running' && Date.now() - ms(t.end) > retireMs * AGING_FRACTION;
   sel.attr('class', (t) => `tree-task ${t.status === 'running' ? 'running' : 'done'}${aging(t) ? ' aging' : ''}`)
     .attr('aria-label', (t) => `Task ${t.id}: ${t.title}, ${t.status}`);
   sel.select('.tree-task-id').text((t) => t.id);
-  sel.select('.tree-task-title').text((t) => t.title);
+  sel.select('.tree-task-title').text((t) => t.summary || t.title);
   sel.select('.tree-elapsed').text(elapsed);
   sel.select('.tree-actions').text((t) => `${t.toolCalls || 0} actions`);
   sel.select('.tree-check').text((t) => (t.status === 'running' ? '' : '✓'));
@@ -75,10 +82,10 @@ function fillTask(sel) {
 
 /** Fill a type card from its group data. */
 function fillType(sel, state) {
-  const color = (d) => state.agents.get(d.name)?.color || '#9ba3c2';
+  const color = (d) => state.agents.get(d.name)?.color || '#6b7a70';
   sel.attr('class', (d) => `tree-type${d.running ? ' working' : ''}`).attr('aria-label', (d) => `Agent ${d.name}, ${d.done} of ${d.total} done`);
   sel.select('.tree-avatar').style('background', color);
-  sel.select('.tree-type-name').text((d) => d.name);
+  sel.select('.tree-type-name').text((d) => (d.total > 1 ? `${d.name} ×${d.total}` : d.name));
   sel.select('.tree-type-count').text((d) => `${d.done}/${d.total}`);
   sel.select('.tree-bar-fill').style('width', (d) => `${d.total ? (100 * d.done) / d.total : 0}%`).style('background', color);
 }
@@ -90,10 +97,10 @@ function enterAnim(sel) {
     .transition().duration(250).style('opacity', 1).style('transform', 'none');
 }
 
-/** Elbow path from the bottom-center of a to the top-center of b. */
+/** Orthogonal elbow path from the bottom-center of a to the top-center of b. */
 function elbow(a, b) {
   const my = (a.y + b.y) / 2;
-  return `M${a.x},${a.y} C${a.x},${my} ${b.x},${my} ${b.x},${b.y}`;
+  return `M${a.x},${a.y} V${my} H${b.x} V${b.y}`;
 }
 
 /** Loop a particle along a path until interrupted. */
@@ -135,14 +142,17 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
   /** Collect link descriptors from the current DOM. */
   function collectLinks() {
     const links = [], c = chief.node();
-    typesBox.selectAll('.tree-group').each(function (g) {
+    typesBox.selectAll('.tree-group:not(.leaving)').each(function (g) {
       const type = d3.select(this).select('.tree-type').node();
       links.push({ key: g.name, type: g.name, from: c, to: type, running: g.running });
-      d3.select(this).selectAll('.tree-task').each(function (t) {
-        links.push({ key: t.id, type: g.name, from: type, to: this, running: t.status === 'running' });
+      const above = new Map();
+      d3.select(this).selectAll('.tree-task:not(.leaving)').each(function (t) {
+        const col = this.offsetLeft;
+        links.push({ key: t.id, type: g.name, from: above.get(col) || type, to: this, running: t.status === 'running' });
+        above.set(col, this);
       });
     });
-    advBox.selectAll('.tree-advisor').each(function (a) {
+    advBox.selectAll('.tree-advisor:not(.leaving)').each(function (a) {
       links.push({ key: 'adv:' + a.name, type: 'adv:' + a.name, from: c, to: this, advisor: true, running: false });
     });
     return links;
@@ -173,9 +183,9 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
   /** Update all columns of one type group. */
   function updateGroup(group) {
     const g = d3.select(group), d = g.datum();
-    g.style('--ag', state.agents.get(d.name)?.color || null);
-    fillType(g.select('.tree-type'), state);
     const { shown, extra } = visibleTasks(d.tasks, expanded.has(d.name));
+    g.style('--ag', state.agents.get(d.name)?.color || null).style('--cols', Math.min(shown.length, MAX_COLS) || 1);
+    fillType(g.select('.tree-type'), state);
     const col = g.select('.tree-col');
     col.selectAll('.tree-task:not(.leaving)').data(shown, (t) => t.id).join((en) => {
       const c = en.append('div').attr('tabindex', 0).call(buildTask);
@@ -211,20 +221,19 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
   function advisors(s) {
     const cfg = new Map((s.backends || []).map((b) => [b.name, b]));
     const names = new Set([...cfg.keys(), ...s.local.calls.keys()]);
-    return [...names].map((name) => ({ name, type: cfg.get(name)?.type || '', call: s.local.calls.get(name) || null }));
+    const now = Date.now();
+    return [...names].map((name) => ({ name, type: cfg.get(name)?.type || '', call: s.local.calls.get(name) || null }))
+      .filter((a) => !a.call || now - a.call.lastTs < retireMs);
   }
 
-  /** Text of the last decision of a Laya advisor, or the idle marker. */
+  /** Status line of a local AI advisor card. */
   function decisionText(a) {
-    const d = a.call?.lastDecision;
-    if (!a.call) return 'idle';
-    if (!d) return a.name === 'laya' ? 'awaiting answer' : 'last answer received';
-    return `${d.agent} · ${d.model} · ${Math.round((d.agentConf || 0) * 100)}%`;
+    return a.call ? 'last answer received' : 'idle';
   }
 
   /** Render the advisor cards beside the chief. */
   function updateAdvisors(s) {
-    const cards = advBox.selectAll('.tree-advisor').data(advisors(s), (d) => d.name).join((en) => {
+    const cards = advBox.selectAll('.tree-advisor:not(.leaving)').data(advisors(s), (d) => d.name).join((en) => {
       const c = en.append('div').attr('class', 'tree-advisor');
       const h = c.append('div').attr('class', 'adv-head');
       h.append('span').attr('class', 'adv-name');
@@ -232,7 +241,7 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
       c.append('div').attr('class', 'adv-calls');
       c.append('div').attr('class', 'adv-decision');
       return c;
-    });
+    }, (u) => u, (ex) => leave(ex.classed('leaving', true)));
     cards.classed('idle', (d) => !d.call).attr('aria-label', (d) => `Local AI ${d.name}`);
     cards.select('.adv-name').text((d) => d.name);
     cards.select('.adv-type').text((d) => d.type);
@@ -247,7 +256,7 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
     updateAdvisors(s);
     const gs = groups(s);
     root.selectAll('.empty').data(gs.length ? [] : [1]).join('div').attr('class', 'empty')
-      .text('All quiet — finished work retires after 10 min');
+      .text(`All quiet — finished work retires after ${retireMs / 1000} s`);
     typesBox.selectAll('.tree-group:not(.leaving)').data(gs, (d) => d.name).join((en) => {
       const g = en.append('div').attr('class', 'tree-group');
       const t = g.append('div').attr('class', 'tree-type').attr('tabindex', 0);
@@ -271,7 +280,7 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
     const type = from === 'chief' ? to : from;
     const path = linkLayer.select(`path[data-type="${CSS.escape(type)}"]`).filter((d) => d.key === type).node();
     if (!path) return;
-    const color = kind === 'brief' ? state.agents.get(type)?.color : '#ffffff';
+    const color = kind === 'brief' ? state.agents.get(type)?.color : '#ffb800';
     if (kind === 'call') advBox.selectAll('.tree-advisor').filter((d) => 'adv:' + d.name === type).classed('ping', true)
       .transition().duration(700).on('end', function () { d3.select(this).classed('ping', false); });
     const c = partLayer.append('circle').attr('class', 'particle pulse').attr('r', 4).attr('fill', color);
@@ -282,7 +291,7 @@ export function createTree(el, { onSelectAgent, onSelectTask }) {
     }).remove();
   }
 
-  d3.interval(() => state && update(state), 15000);
+  d3.interval(() => state && update(state), 2000);
   d3.interval(() => root.selectAll('.tree-task.running .tree-elapsed').text(elapsed), 1000);
   const ro = new ResizeObserver(() => state && relink());
   ro.observe(el);

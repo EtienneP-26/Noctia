@@ -1,6 +1,7 @@
 // Panels: KPI tiles, wave/task list, detail drawer. Uses the global d3 (v7).
 const RING_R = 42;
 const RING_C = 2 * Math.PI * RING_R;
+import { fmtSpan, fmtSpanFull, fmtFull } from './timeline.js';
 let lastFocus = null;
 
 /** True when the user prefers reduced motion. */
@@ -117,6 +118,7 @@ function fillTask(row, state, onSelect) {
     .on('keydown', (e, t) => { if (e.key === 'Enter') onSelect(t.id); });
   row.select('.task-id').text((t) => t.id);
   row.select('.task-title').text((t) => t.title);
+  row.select('.task-time').text((t) => fmtSpan(t)).attr('title', (t) => fmtSpanFull(t));
   row.select('.task-agent').text((t) => t.agent).select('.dot')
     .style('background', (t) => state.agents.get(t.agent)?.color || 'currentColor');
 }
@@ -126,6 +128,7 @@ function buildTask(enter) {
   const row = enter.append('li');
   row.append('span').attr('class', 'task-id');
   row.append('span').attr('class', 'task-title');
+  row.append('span').attr('class', 'task-time').attr('style', 'font-size:11px;opacity:.7;white-space:nowrap;font-variant-numeric:tabular-nums');
   row.append('span').attr('class', 'task-agent').append('span').attr('class', 'dot');
   return row;
 }
@@ -166,7 +169,7 @@ function durationOf(t) {
 /** Key/value rows for a task. */
 function taskKv(t) {
   const tok = t.tokens ? `${fmtTokens(t.tokens.in)} in / ${fmtTokens(t.tokens.out)} out` : '-';
-  return [['Agent', t.agent], ['Model', t.model || '-'], ['Status', t.status], ['Duration', durationOf(t)], ['Tokens', tok]];
+  return [['Agent', t.agent], ['Model', t.model || '-'], ['Status', t.status], ['Duration', durationOf(t)], ['Time', fmtSpan(t) || '-'], ['Started', t.start ? fmtFull(t.start) : '-'], ['Tokens', tok]];
 }
 
 /** Key/value rows for an agent. */

@@ -40,6 +40,6 @@ Conventions: 1-2 lines · Report: 80 words max
   Limit per task: 3 files written, ~150 lines, one goal; bigger = split. Prefer many small fast tasks over one big vague one. The Agent call `description` MUST start with `W<wave>·T<task> ` (middle dot), e.g. `W2·T5 config parser`: a dashboard parses it.
   In a parallel wave, a developer runs formatters/fixers only on its own `Writes` files. No dependency install, no repo-wide command (`prettier --write .`, `eslint --fix`, codegen): those go to a solo task.
 - Local AIs: the `noctia-localai` MCP (`list_local`, `ask_local`) reaches self-hosted models from ~/.config/noctia/localai.json. Use only for cheap, simple or private sub-tasks; verify their output.
-- Routing advice: before delegating a non-obvious task, you may call `ask_local` on backend `laya` with the task description; it returns agent and model choices with confidence. Advisory only: you decide. Ignore it below 0.6 confidence.
 - If session context lists disabled agents, never delegate to them.
+- Honor the `Noctia workflow:` line from session context: never run a step marked off.
 - The Noctia rules (injected at session start) apply to you and to the whole team. Git is locked by default: never work around it.

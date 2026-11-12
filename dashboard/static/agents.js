@@ -1,5 +1,5 @@
 "use strict";
-const MODELS = ["haiku", "sonnet", "opus", "inherit"];
+const MODELS = ["haiku", "sonnet", "opus", "fable", "inherit"];
 const KNOWN = ["chief", "orchestrator", "developer", "tester", "reader", "documenter", "pentester", "designer", "legal"];
 
 /** Create an element with a class and optional text. */
