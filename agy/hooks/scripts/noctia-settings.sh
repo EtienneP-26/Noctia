@@ -46,7 +46,7 @@ _noctia_valid() {
     dashboard.autostart | dashboard.summaries | workflow.*) _noctia_in_set "$2" true false ;;
     dashboard.port) _noctia_in_range "$2" 1024 65535 ;;
     dashboard.retire_seconds) _noctia_in_range "$2" 0 3600 ;;
-    git.default_mode) _noctia_in_set "$2" '"locked"' '"ask"' ;;
+    git.default_mode) _noctia_in_set "$2" '"locked"' '"ask"' '"auto"' ;;
     git.default_coauthor) _noctia_in_set "$2" '"ask"' '"yes"' '"no"' ;;
     *) return 1 ;;
   esac

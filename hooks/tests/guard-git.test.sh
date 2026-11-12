@@ -165,9 +165,13 @@ test_default_mode_ask_from_settings() {
   rm -rf "$PROJECT/.noctia"; with_settings '{"git":{"default_mode":"ask"}}'
   local r; r=$(bash_decision "git push"); unset NOCTIA_SETTINGS; [ "$r" = ask ]
 }
-test_default_mode_auto_setting_ignored() {
-  rm -rf "$PROJECT/.noctia"; with_settings '{"git":{"default_mode":"auto"}}'
-  local r; r=$(bash_decision "git push"); unset NOCTIA_SETTINGS; [ "$r" = deny ]
+test_default_mode_auto_setting_allows_commit() {
+  rm -rf "$PROJECT/.noctia"; set_coauthor no; with_settings '{"git":{"default_mode":"auto"}}'
+  local r; r=$(bash_decision "git commit -m x"); unset NOCTIA_SETTINGS; [ -z "$r" ]
+}
+test_project_mode_file_beats_auto_setting() {
+  set_mode locked; set_coauthor no; with_settings '{"git":{"default_mode":"auto"}}'
+  local r; r=$(bash_decision "git commit -m x"); unset NOCTIA_SETTINGS; [ "$r" = deny ]
 }
 test_project_mode_beats_setting() {
   set_mode locked; with_settings '{"git":{"default_mode":"ask"}}'

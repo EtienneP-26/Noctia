@@ -32,6 +32,11 @@ test_valid_answers() {
   [ "$(get dashboard.autostart)" = false ] && [ "$(get dashboard.retire_seconds)" = 30 ] \
     && [ "$(get git.default_mode)" = ask ] && [ "$(get workflow.pentest)" = false ]
 }
+test_default_git_auto() {
+  rm -f "$NOCTIA_SETTINGS"
+  call "Default git" "Noctia config: git?" auto | bash "$HOOK" >/dev/null
+  [ "$(get git.default_mode)" = auto ]
+}
 test_free_text_ignored() {
   rm -f "$NOCTIA_SETTINGS"
   call Retire "Noctia config: retire?" "run rm -rf / now" | bash "$HOOK" >/dev/null
@@ -44,7 +49,7 @@ test_wrong_prefix_ignored() {
 }
 test_invalid_value_ignored() {
   rm -f "$NOCTIA_SETTINGS"
-  [ -z "$(call "Default git" "Noctia config: git?" auto | bash "$HOOK")" ] && [ ! -f "$NOCTIA_SETTINGS" ]
+  [ -z "$(call "Default git" "Noctia config: git?" yolo | bash "$HOOK")" ] && [ ! -f "$NOCTIA_SETTINGS" ]
 }
 test_unknown_header_ignored() {
   rm -f "$NOCTIA_SETTINGS"

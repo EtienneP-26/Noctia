@@ -34,5 +34,5 @@ workflow (keys `workflow.pentest`, `workflow.designer`, `workflow.legal`, `workf
 - headers `Pentest`, `Designer`, `Legal`, `Docs`, labels `on`, `off`
 
 git (keys `git.default_mode`, `git.default_coauthor`):
-- header `Default git`, labels `locked`, `ask`
+- header `Default git`, labels `locked`, `ask`, `auto` (describe `auto` as "sans confirmation — à utiliser avec prudence")
 - header `Co-author`, labels `ask`, `yes`, `no`

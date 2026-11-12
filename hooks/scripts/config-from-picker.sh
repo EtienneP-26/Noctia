@@ -4,7 +4,7 @@
 #   Autostart->dashboard.autostart (on|off)   Summaries->dashboard.summaries (on|off)
 #   Retire->dashboard.retire_seconds (0|5|10|30|60)   Port->dashboard.port (1024-65535)
 #   Pentest|Designer|Legal|Docs->workflow.<lowercase> (on|off)
-#   "Default git"->git.default_mode (locked|ask)   Co-author->git.default_coauthor (ask|yes|no)
+#   "Default git"->git.default_mode (locked|ask|auto)   Co-author->git.default_coauthor (ask|yes|no)
 # Answers are read from tool_response only, never tool_input. Header matching and value checks run in jq
 # against fixed lists, so control characters or unknown text never reach the shell. Anything else is ignored.
 set -u
@@ -24,7 +24,7 @@ validated_pairs() {
       "Designer": ["workflow.designer", on_off],
       "Legal": ["workflow.legal", on_off],
       "Docs": ["workflow.docs", on_off],
-      "Default git": ["git.default_mode", {"locked": "locked", "ask": "ask"}],
+      "Default git": ["git.default_mode", {"locked": "locked", "ask": "ask", "auto": "auto"}],
       "Co-author": ["git.default_coauthor", {"ask": "ask", "yes": "yes", "no": "no"}]
     };
     def port_value($l):

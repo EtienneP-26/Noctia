@@ -55,8 +55,13 @@ test_port_out_of_range() {
   expect dashboard.port 1024
 }
 
+test_auto_mode() {
+  write_settings '{"git":{"default_mode":"auto"}}'
+  expect git.default_mode auto
+}
+
 test_bad_choice() {
-  write_settings '{"git":{"default_mode":"auto","default_coauthor":"maybe"}}'
+  write_settings '{"git":{"default_mode":"yolo","default_coauthor":"maybe"}}'
   expect git.default_mode locked && expect git.default_coauthor ask
 }
 
@@ -77,6 +82,7 @@ check "malformed json uses defaults" test_malformed_json
 check "valid overrides are read" test_valid_overrides
 check "wrong types use defaults" test_wrong_types
 check "out-of-range port uses default" test_port_out_of_range
+check "auto git mode is read" test_auto_mode
 check "bad choices use defaults" test_bad_choice
 check "unknown key prints nothing and fails" test_unknown_key
 check "missing jq uses defaults" test_no_jq

@@ -18,7 +18,7 @@ DEFAULTS = {
 }
 RANGES = {("dashboard", "port"): (1024, 65535),
           ("dashboard", "retire_seconds"): (0, 3600)}
-CHOICES = {("git", "default_mode"): ("locked", "ask"),
+CHOICES = {("git", "default_mode"): ("locked", "ask", "auto"),
            ("git", "default_coauthor"): ("ask", "yes", "no")}
 
 

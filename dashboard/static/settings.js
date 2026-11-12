@@ -20,6 +20,22 @@ async function post(body) {
   return data;
 }
 
+/** Show the auto-mode warning under the default mode control. */
+function warnAuto(s) {
+  const seg = document.querySelector('[data-section="git"][data-key="default_mode"]');
+  if (!seg) return;
+  let w = document.getElementById("st-warn-auto");
+  if (!w) {
+    w = document.createElement("p");
+    w.id = "st-warn-auto";
+    w.className = "st-hint";
+    w.style.color = "var(--warn)";
+    w.textContent = "auto : git add/commit/push sans confirmation dans les projets sans mode défini.";
+    seg.parentElement.after(w);
+  }
+  w.hidden = s.git?.default_mode !== "auto";
+}
+
 /** Set one control's displayed value. */
 function paint(ctl, value) {
   if (ctl.classList.contains("st-switch")) ctl.setAttribute("aria-checked", String(value));
@@ -35,6 +51,7 @@ function paintAll(s) {
     const v = s[ctl.dataset.section]?.[ctl.dataset.key];
     if (v !== undefined) paint(ctl, v);
   }
+  warnAuto(s);
 }
 
 /** Save one value; on failure revert the control and show the error. */

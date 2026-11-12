@@ -49,7 +49,7 @@ class SettingsTest(unittest.TestCase):
 
     def test_validation_errors(self):
         """Bad input raises ValueError."""
-        bad = [{"x": {}}, {"git": {"nope": 1}}, {"git": {"default_mode": "auto"}},
+        bad = [{"x": {}}, {"git": {"nope": 1}}, {"git": {"default_mode": "yolo"}},
                {"dashboard": {"port": 80}}, {"dashboard": {"port": 70000}},
                {"dashboard": {"port": True}}, {"dashboard": {"retire_seconds": 3601}},
                {"dashboard": {"autostart": "true"}},
@@ -68,8 +68,13 @@ class SettingsTest(unittest.TestCase):
     def test_invalid_stored_value_ignored(self):
         """Invalid stored value falls back to default."""
         self.path.parent.mkdir()
-        self.path.write_text('{"git": {"default_mode": "auto"}}')
+        self.path.write_text('{"git": {"default_mode": "yolo"}}')
         self.assertEqual(settings.load(self.path)["git"]["default_mode"], "locked")
+
+    def test_auto_mode_valid(self):
+        """Auto is an accepted default_mode value."""
+        full = settings.save({"git": {"default_mode": "auto"}}, self.path)
+        self.assertEqual(full["git"]["default_mode"], "auto")
 
     def test_cli(self):
         """CLI get and set."""
@@ -82,7 +87,7 @@ class SettingsTest(unittest.TestCase):
 
     def test_cli_errors(self):
         """CLI exits 2 on errors."""
-        for args in (("set", "git.default_mode", "auto"), ("get", "a.b"),
+        for args in (("set", "git.default_mode", "yolo"), ("get", "a.b"),
                      ("set", "dashboard.port", "x"), ("set", "dashboard.autostart", "1")):
             res = self.cli(*args)
             self.assertEqual(res.returncode, 2, args)
